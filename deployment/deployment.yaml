@@ -1,0 +1,120 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ndk-dashboard
+  namespace: default
+  labels:
+    app: ndk-dashboard
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ndk-dashboard
+  template:
+    metadata:
+      labels:
+        app: ndk-dashboard
+    spec:
+      serviceAccountName: ndk-dashboard
+      initContainers:
+        - name: app-setup
+          image: alpine/git:latest
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              set -e
+              echo "Cloning NDK Dashboard repository..."
+              git clone https://github.com/YOUR_USERNAME/ndk-dashboard.git /tmp/app || \
+              echo "Using local files (for development)"
+              
+              # For now, we'll create a placeholder
+              # In production, replace with your actual git repo
+              mkdir -p /app
+              echo "App setup complete!"
+          volumeMounts:
+            - name: app-source
+              mountPath: /app
+      containers:
+        - name: ndk-dashboard
+          image: python:3.11-slim
+          command: ["/bin/bash"]
+          args:
+            - -c
+            - |
+              set -e
+              cd /app
+              echo "Installing dependencies..."
+              pip install --no-cache-dir -r requirements.txt
+              echo "Starting Flask application..."
+              python app.py
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ndk-dashboard-secret
+                  key: SECRET_KEY
+            - name: DASHBOARD_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: ndk-dashboard-secret
+                  key: DASHBOARD_USERNAME
+            - name: DASHBOARD_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: ndk-dashboard-secret
+                  key: DASHBOARD_PASSWORD
+            - name: FLASK_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: ndk-dashboard-config
+                  key: FLASK_ENV
+            - name: IN_CLUSTER
+              valueFrom:
+                configMapKeyRef:
+                  name: ndk-dashboard-config
+                  key: IN_CLUSTER
+            - name: CACHE_TTL
+              valueFrom:
+                configMapKeyRef:
+                  name: ndk-dashboard-config
+                  key: CACHE_TTL
+            - name: SESSION_TIMEOUT_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: ndk-dashboard-config
+                  key: SESSION_TIMEOUT_HOURS
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: app-source
+              mountPath: /app
+      volumes:
+        - name: app-source
+          emptyDir: {}

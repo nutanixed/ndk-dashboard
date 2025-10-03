@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDK Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ cache_bust }}">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>NDK Dashboard</h1>
+                <span class="nav-subtitle">Nutanix Data Services for Kubernetes</span>
+            </div>
+            <div class="nav-actions">
+                <button id="refreshBtn" class="btn btn-secondary">
+                    <span id="refreshIcon">🔄</span> Refresh
+                </button>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📦</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="stat-applications">-</div>
+                    <div class="stat-label">Applications</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">📸</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="stat-snapshots">-</div>
+                    <div class="stat-label">Snapshots</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="stat-clusters">-</div>
+                    <div class="stat-label">Storage Clusters</div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">🛡️</div>
+                <div class="stat-content">
+                    <div class="stat-value" id="stat-plans">-</div>
+                    <div class="stat-label">Protection Plans</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="applications">Applications</button>
+            <button class="tab-btn" data-tab="deploy">🚀 Deploy</button>
+            <button class="tab-btn" data-tab="snapshots">Snapshots</button>
+            <button class="tab-btn" data-tab="storageclusters">Storage Clusters</button>
+            <button class="tab-btn" data-tab="protectionplans">Protection Plans</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content active" id="applications-tab">
+            <div class="section-header">
+                <h2>Applications</h2>
+                <div class="filter-controls">
+                    <select id="namespace-filter" class="filter-select">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                    <input type="text" id="search-applications" class="search-input" placeholder="Search applications...">
+                </div>
+            </div>
+            <div id="applications-loading" class="loading">Loading applications...</div>
+            <div id="applications-content"></div>
+        </div>
+
+        <!-- Deploy Tab -->
+        <div class="tab-content" id="deploy-tab">
+            <div class="section-header">
+                <h2>Deploy New Application</h2>
+                <p class="section-description">Deploy stateful applications with automatic NDK protection</p>
+            </div>
+            
+            <div class="deploy-templates">
+                <h3 class="templates-title">📦 Application Templates</h3>
+                <div class="templates-grid">
+                    <div class="template-card" onclick="showDeployModal('mysql')">
+                        <div class="template-icon">🐬</div>
+                        <h4>MySQL</h4>
+                        <p>Relational database with StatefulSet</p>
+                        <span class="template-badge">Popular</span>
+                    </div>
+                    
+                    <div class="template-card" onclick="showDeployModal('postgresql')">
+                        <div class="template-icon">🐘</div>
+                        <h4>PostgreSQL</h4>
+                        <p>Advanced relational database</p>
+                        <span class="template-badge">Popular</span>
+                    </div>
+                    
+                    <div class="template-card" onclick="showDeployModal('mongodb')">
+                        <div class="template-icon">🍃</div>
+                        <h4>MongoDB</h4>
+                        <p>NoSQL document database</p>
+                        <span class="template-badge">NoSQL</span>
+                    </div>
+                    
+                    <div class="template-card" onclick="showDeployModal('redis')" style="display: none;">
+                        <div class="template-icon">🔴</div>
+                        <h4>Redis</h4>
+                        <p>In-memory data store</p>
+                        <span class="template-badge">Cache</span>
+                    </div>
+                    
+                    <div class="template-card" onclick="showDeployModal('elasticsearch')">
+                        <div class="template-icon">🔍</div>
+                        <h4>Elasticsearch</h4>
+                        <p>Search and analytics engine</p>
+                        <span class="template-badge">Search</span>
+                    </div>
+                    
+                    <div class="template-card" onclick="showDeployModal('cassandra')" style="display: none;">
+                        <div class="template-icon">💎</div>
+                        <h4>Cassandra</h4>
+                        <p>Distributed NoSQL database</p>
+                        <span class="template-badge">NoSQL</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="snapshots-tab">
+            <div class="section-header">
+                <h2>Application Snapshots</h2>
+                <input type="text" id="search-snapshots" class="search-input" placeholder="Search snapshots...">
+            </div>
+            <div id="snapshots-loading" class="loading">Loading snapshots...</div>
+            <div id="snapshots-content"></div>
+        </div>
+
+        <div class="tab-content" id="storageclusters-tab">
+            <div class="section-header">
+                <h2>Storage Clusters</h2>
+            </div>
+            <div id="storageclusters-loading" class="loading">Loading storage clusters...</div>
+            <div id="storageclusters-content"></div>
+        </div>
+
+        <div class="tab-content" id="protectionplans-tab">
+            <div class="section-header">
+                <h2>Protection Plans</h2>
+                <button class="btn btn-primary" onclick="showCreatePlanModal()">➕ Create Protection Plan</button>
+            </div>
+            <div id="protectionplans-loading" class="loading">Loading protection plans...</div>
+            <div id="protectionplans-content"></div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>NDK Dashboard | Last updated: <span id="last-updated">-</span></p>
+    </footer>
+
+    <!-- Snapshot Creation Modal -->
+    <div id="snapshot-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📸 Create Snapshot</h3>
+                <button class="modal-close" onclick="closeSnapshotModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Create a snapshot for application: <strong id="snapshot-app-name"></strong></p>
+                
+                <div class="form-group">
+                    <label for="snapshot-expiration">Expiration Time:</label>
+                    <select id="snapshot-expiration" class="form-control">
+                        <option value="24h">24 hours (1 day)</option>
+                        <option value="168h">168 hours (7 days)</option>
+                        <option value="720h" selected>720 hours (30 days)</option>
+                        <option value="2160h">2160 hours (90 days)</option>
+                        <option value="4320h">4320 hours (180 days)</option>
+                        <option value="8760h">8760 hours (1 year)</option>
+                    </select>
+                </div>
+                
+                <input type="hidden" id="snapshot-app-name-hidden">
+                <input type="hidden" id="snapshot-namespace-hidden">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeSnapshotModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createSnapshotWithExpiration()">Create Snapshot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Restore Modal -->
+    <div id="restore-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>↻ Restore from Snapshot</h3>
+                <button class="modal-close" onclick="closeRestoreModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Restore from snapshot: <strong id="restore-snapshot-name"></strong></p>
+                
+                <div class="form-group">
+                    <label for="restore-name">Restore Name:</label>
+                    <input type="text" id="restore-name" class="form-control" placeholder="Enter restore name" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="restore-target-namespace">Target Namespace:</label>
+                    <input type="text" id="restore-target-namespace" class="form-control" placeholder="Enter target namespace" required>
+                </div>
+                
+                <input type="hidden" id="restore-snapshot-name-hidden">
+                <input type="hidden" id="restore-namespace-hidden">
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="restoreSnapshot()">Restore</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Snapshot Modal -->
+    <div id="bulk-snapshot-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📸 Create Bulk Snapshots</h3>
+                <button class="modal-close" onclick="closeBulkSnapshotModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Create snapshots for <strong id="bulk-selected-count"></strong> applications</p>
+                
+                <div class="form-group">
+                    <label for="bulk-snapshot-expiration">Expiration Time:</label>
+                    <select id="bulk-snapshot-expiration" class="form-control">
+                        <option value="24h">24 hours (1 day)</option>
+                        <option value="168h">168 hours (7 days)</option>
+                        <option value="720h" selected>720 hours (30 days)</option>
+                        <option value="2160h">2160 hours (90 days)</option>
+                        <option value="4320h">4320 hours (180 days)</option>
+                        <option value="8760h">8760 hours (1 year)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeBulkSnapshotModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createBulkSnapshotsWithExpiration()">Create Snapshots</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Protection Plan Modal -->
+    <div id="plan-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="plan-modal-title">🛡️ Create Protection Plan</h3>
+                <button class="modal-close" onclick="closePlanModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="plan-name">Plan Name: <span class="required">*</span></label>
+                    <input type="text" id="plan-name" class="form-control" placeholder="e.g., daily-backup" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plan-namespace">Namespace: <span class="required">*</span></label>
+                    <select id="plan-namespace-select" class="form-control" onchange="handlePlanNamespaceChange()">
+                        <option value="default">default</option>
+                        <option value="__custom__">➕ Create New Namespace...</option>
+                    </select>
+                    <input type="text" id="plan-namespace" class="form-control" placeholder="Enter new namespace name" style="display: none; margin-top: 8px;" required>
+                    <small class="form-help">Select existing or create new</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plan-schedule-type">Schedule Type:</label>
+                    <select id="plan-schedule-type" class="form-control" onchange="updateScheduleInput()">
+                        <option value="preset">Preset Schedule</option>
+                        <option value="custom">Custom Cron Expression</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-schedule-preset-group">
+                    <label for="plan-schedule-preset">Schedule: <span class="required">*</span></label>
+                    <select id="plan-schedule-preset" class="form-control">
+                        <option value="0 2 * * *">Daily at 2:00 AM</option>
+                        <option value="0 3 * * 0">Weekly on Sunday at 3:00 AM</option>
+                        <option value="0 4 1 * *">Monthly on 1st at 4:00 AM</option>
+                        <option value="0 */6 * * *">Every 6 hours</option>
+                        <option value="0 */12 * * *">Every 12 hours</option>
+                        <option value="0 1 * * 1-5">Weekdays at 1:00 AM</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-schedule-custom-group" style="display: none;">
+                    <label for="plan-schedule-custom">Cron Expression: <span class="required">*</span></label>
+                    <input type="text" id="plan-schedule-custom" class="form-control" placeholder="e.g., 0 2 * * *">
+                    <small class="form-help">Format: minute hour day month weekday</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plan-retention-type">Retention Type:</label>
+                    <select id="plan-retention-type" class="form-control" onchange="updateRetentionInput()">
+                        <option value="count">Keep Last N Snapshots</option>
+                        <option value="duration">Keep for Duration</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-retention-count-group">
+                    <label for="plan-retention-count">Number of Snapshots: <span class="required">*</span></label>
+                    <input type="number" id="plan-retention-count" class="form-control" value="7" min="1" max="100">
+                </div>
+                
+                <div class="form-group" id="plan-retention-duration-group" style="display: none;">
+                    <label for="plan-retention-duration">Retention Duration: <span class="required">*</span></label>
+                    <select id="plan-retention-duration" class="form-control">
+                        <option value="168h">7 days</option>
+                        <option value="720h">30 days</option>
+                        <option value="2160h">90 days</option>
+                        <option value="4320h">180 days</option>
+                        <option value="8760h">1 year</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plan-selector-type">Application Selector:</label>
+                    <select id="plan-selector-type" class="form-control" onchange="updateSelectorInput()">
+                        <option value="label">Label Selector</option>
+                        <option value="name">Application Name</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-selector-label-group">
+                    <label for="plan-selector-label-key">Label Key: <span class="required">*</span></label>
+                    <input type="text" id="plan-selector-label-key" class="form-control" placeholder="e.g., app">
+                    <label for="plan-selector-label-value" style="margin-top: 10px;">Label Value: <span class="required">*</span></label>
+                    <input type="text" id="plan-selector-label-value" class="form-control" placeholder="e.g., mysql">
+                </div>
+                
+                <div class="form-group" id="plan-selector-name-group" style="display: none;">
+                    <label for="plan-selector-name">Application Name: <span class="required">*</span></label>
+                    <input type="text" id="plan-selector-name" class="form-control" placeholder="e.g., mysql-app">
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="plan-enabled" checked>
+                        <span>Enable plan immediately</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePlanModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="savePlan()">
+                    <span id="plan-save-text">Create Plan</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Plan History Modal -->
+    <div id="plan-history-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>📊 Protection Plan History</h3>
+                <button class="modal-close" onclick="closePlanHistoryModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Snapshots created by plan: <strong id="history-plan-name"></strong></p>
+                
+                <div id="plan-history-loading" class="loading">Loading history...</div>
+                <div id="plan-history-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closePlanHistoryModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deploy Application Modal -->
+    <div id="deploy-modal" class="modal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="deploy-modal-title">🚀 Deploy Application</h3>
+                <button class="modal-close" onclick="closeDeployModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="deploy-app-type">
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">📋 Basic Configuration</h4>
+                    
+                    <div class="form-group">
+                        <label for="deploy-name">Application Name: <span class="required">*</span></label>
+                        <input type="text" id="deploy-name" class="form-control" placeholder="e.g., my-mysql" required>
+                        <small class="form-help">Lowercase alphanumeric characters or '-'</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="deploy-namespace">Namespace: <span class="required">*</span></label>
+                        <select id="deploy-namespace-select" class="form-control" onchange="handleNamespaceChange()">
+                            <option value="default">default</option>
+                            <option value="__custom__">➕ Create New Namespace...</option>
+                        </select>
+                        <input type="text" id="deploy-namespace" class="form-control" placeholder="Enter new namespace name" style="display: none; margin-top: 8px;" required>
+                        <small class="form-help">Select existing or create new (will be created if it doesn't exist)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="deploy-replicas">Replicas:</label>
+                        <input type="number" id="deploy-replicas" class="form-control" value="1" min="1" max="10">
+                        <small class="form-help">Number of pod replicas (StatefulSet)</small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">💾 Storage Configuration</h4>
+                    
+                    <div class="form-group">
+                        <label for="deploy-storage-class">Storage Class:</label>
+                        <select id="deploy-storage-class" class="form-control">
+                            <option value="default">Default Storage Class</option>
+                            <option value="default-storageclass-dev01">default-storageclass-dev01</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="deploy-storage-size">Storage Size:</label>
+                        <input type="text" id="deploy-storage-size" class="form-control" value="10Gi" placeholder="e.g., 10Gi, 50Gi">
+                        <small class="form-help">Size per replica (e.g., 10Gi, 50Gi, 100Gi)</small>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">🔐 Application Configuration</h4>
+                    
+                    <div class="form-group" id="deploy-password-group">
+                        <label for="deploy-password">Root Password:</label>
+                        <input type="password" id="deploy-password" class="form-control" placeholder="Leave empty for auto-generated">
+                        <small class="form-help">Leave empty to auto-generate a secure password</small>
+                    </div>
+                    
+                    <div class="form-group" id="deploy-database-group" style="display: none;">
+                        <label for="deploy-database">Database Name:</label>
+                        <input type="text" id="deploy-database" class="form-control" placeholder="e.g., mydb">
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">🛡️ NDK Protection</h4>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="deploy-create-ndk-app" checked>
+                            <span>Create NDK Application CR</span>
+                        </label>
+                        <small class="form-help">Enables NDK data protection capabilities</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="deploy-create-protection-plan">
+                            <span>Create Protection Plan</span>
+                        </label>
+                        <small class="form-help">Automatically create snapshots on a schedule</small>
+                    </div>
+                    
+                    <div id="deploy-protection-config" style="display: none; margin-left: 30px;">
+                        <div class="form-group">
+                            <label for="deploy-protection-schedule">Backup Schedule:</label>
+                            <select id="deploy-protection-schedule" class="form-control">
+                                <option value="0 2 * * *">Daily at 2:00 AM</option>
+                                <option value="0 */6 * * *">Every 6 hours</option>
+                                <option value="0 */12 * * *">Every 12 hours</option>
+                                <option value="0 3 * * 0">Weekly on Sunday at 3:00 AM</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="deploy-protection-retention">Retention:</label>
+                            <input type="number" id="deploy-protection-retention" class="form-control" value="7" min="1" max="100">
+                            <small class="form-help">Number of snapshots to keep</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <strong>ℹ️ Note:</strong> This will create a StatefulSet with persistent volumes. The deployment may take a few minutes to complete.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeployModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="deployApplication()">
+                    <span id="deploy-btn-text">🚀 Deploy Application</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}?v={{ cache_bust }}"></script>
+</body>
+</html>
