@@ -10,6 +10,7 @@ let allData = {
 };
 let selectedApplications = new Set();
 let currentNamespaceFilter = 'all';
+let currentProtectionPlanFilter = 'all';
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeRefresh();
     initializeSearch();
     initializeNamespaceFilter();
+    initializeProtectionPlanFilter();
     loadAllData();
 });
 
@@ -102,6 +104,51 @@ function populateNamespaceFilter() {
     }
 }
 
+// Protection Plan Filter Management
+function initializeProtectionPlanFilter() {
+    const planFilter = document.getElementById('protection-plan-filter');
+    if (planFilter) {
+        planFilter.addEventListener('change', function() {
+            currentProtectionPlanFilter = this.value;
+            applyFilters('snapshots');
+        });
+    }
+}
+
+function populateProtectionPlanFilter() {
+    const planFilter = document.getElementById('protection-plan-filter');
+    if (!planFilter || !allData.snapshots) return;
+    
+    // Get unique protection plans from snapshots
+    const plans = new Set();
+    allData.snapshots.forEach(snap => {
+        if (snap.protectionPlan) {
+            plans.add(snap.protectionPlan);
+        }
+    });
+    
+    // Sort plans alphabetically
+    const sortedPlans = Array.from(plans).sort();
+    
+    // Preserve current selection
+    const currentValue = planFilter.value;
+    
+    // Rebuild options
+    planFilter.innerHTML = '<option value="all">All Protection Plans</option>';
+    planFilter.innerHTML += '<option value="manual">Manual Snapshots Only</option>';
+    sortedPlans.forEach(plan => {
+        const option = document.createElement('option');
+        option.value = plan;
+        option.textContent = plan;
+        planFilter.appendChild(option);
+    });
+    
+    // Restore selection if it still exists
+    if (currentValue && Array.from(planFilter.options).some(opt => opt.value === currentValue)) {
+        planFilter.value = currentValue;
+    }
+}
+
 // Search Management
 function initializeSearch() {
     const searchInputs = document.querySelectorAll('.search-input');
@@ -129,6 +176,17 @@ function applyFilters(tabName, searchTerm = null) {
         data = data.filter(app => app.namespace === currentNamespaceFilter);
     }
     
+    // Apply protection plan filter for snapshots
+    if (tabName === 'snapshots' && currentProtectionPlanFilter !== 'all') {
+        if (currentProtectionPlanFilter === 'manual') {
+            // Show only manual snapshots (no protection plan)
+            data = data.filter(snap => !snap.protectionPlan);
+        } else {
+            // Show snapshots from specific protection plan
+            data = data.filter(snap => snap.protectionPlan === currentProtectionPlanFilter);
+        }
+    }
+    
     // Apply search filter
     if (searchTerm) {
         data = data.filter(item => {
@@ -152,14 +210,16 @@ async function loadAllData() {
     }
     
     try {
+        // Load all resources in parallel (but NOT stats, to avoid cache conflicts)
         await Promise.all([
-            loadStats(),
             loadApplications(),
             loadSnapshots(),
             loadStorageClusters(),
             loadProtectionPlans()
         ]);
         
+        // Update stats from loaded data instead of making a separate API call
+        updateStatsFromData();
         updateLastUpdated();
     } catch (error) {
         console.error('Error loading data:', error);
@@ -169,6 +229,14 @@ async function loadAllData() {
             refreshIcon.classList.remove('spinning');
         }
     }
+}
+
+function updateStatsFromData() {
+    // Update stat counters from the loaded data
+    document.getElementById('stat-applications').textContent = allData.applications?.length || 0;
+    document.getElementById('stat-snapshots').textContent = allData.snapshots?.length || 0;
+    document.getElementById('stat-clusters').textContent = allData.storageclusters?.length || 0;
+    document.getElementById('stat-plans').textContent = allData.protectionplans?.length || 0;
 }
 
 async function loadStats() {
@@ -202,7 +270,7 @@ async function loadApplications() {
     
     try {
         loadingEl.style.display = 'block';
-        contentEl.innerHTML = '';
+        // Don't clear content immediately - keep old data visible during refresh
         
         const response = await fetch('/api/applications');
         
@@ -226,6 +294,7 @@ async function loadApplications() {
         allData.applications = data;
         populateNamespaceFilter();
         applyFilters('applications');
+        updateStatsFromData();
     } catch (error) {
         console.error('Error loading applications:', error);
         contentEl.innerHTML = '<div class="empty-state">Error loading applications</div>';
@@ -240,7 +309,7 @@ async function loadSnapshots() {
     
     try {
         loadingEl.style.display = 'block';
-        contentEl.innerHTML = '';
+        // Don't clear content immediately - keep old data visible during refresh
         
         const response = await fetch('/api/snapshots');
         
@@ -258,7 +327,9 @@ async function loadSnapshots() {
         console.log('Snapshots loaded:', data.length, 'items');
         
         allData.snapshots = data;
-        renderData('snapshots', data);
+        populateProtectionPlanFilter();
+        applyFilters('snapshots');
+        updateStatsFromData();
     } catch (error) {
         console.error('Error loading snapshots:', error);
         contentEl.innerHTML = '<div class="empty-state">Error loading snapshots</div>';
@@ -273,7 +344,7 @@ async function loadStorageClusters() {
     
     try {
         loadingEl.style.display = 'block';
-        contentEl.innerHTML = '';
+        // Don't clear content immediately - keep old data visible during refresh
         
         const response = await fetch('/api/storageclusters');
         
@@ -291,6 +362,7 @@ async function loadStorageClusters() {
         
         allData.storageclusters = data;
         renderData('storageclusters', data);
+        updateStatsFromData();
     } catch (error) {
         console.error('Error loading storage clusters:', error);
         contentEl.innerHTML = '<div class="empty-state">Error loading storage clusters</div>';
@@ -305,7 +377,7 @@ async function loadProtectionPlans() {
     
     try {
         loadingEl.style.display = 'block';
-        contentEl.innerHTML = '';
+        // Don't clear content immediately - keep old data visible during refresh
         
         const response = await fetch('/api/protectionplans');
         
@@ -323,6 +395,7 @@ async function loadProtectionPlans() {
         
         allData.protectionplans = data;
         renderData('protectionplans', data);
+        updateStatsFromData();
     } catch (error) {
         console.error('Error loading protection plans:', error);
         contentEl.innerHTML = '<div class="empty-state">Error loading protection plans</div>';
@@ -376,13 +449,16 @@ function renderApplications(data, container) {
             <table>
                 <thead>
                     <tr>
-                        <th><input type="checkbox" id="select-all-apps" onchange="toggleSelectAll(this)"></th>
-                        <th>Name</th>
-                        <th>Namespace</th>
-                        <th>Status</th>
-                        <th>Last Snapshot</th>
-                        <th>Created</th>
-                        <th>Actions</th>
+                        <th style="width: 3%;"><input type="checkbox" id="select-all-apps" onchange="toggleSelectAll(this)"></th>
+                        <th style="width: 16%;">Name</th>
+                        <th style="width: 10%;">Namespace</th>
+                        <th style="width: 8%;">Status</th>
+                        <th style="width: 6%;">Replicas</th>
+                        <th style="width: 7%;">Volume Groups</th>
+                        <th style="width: 14%;">Labels</th>
+                        <th style="width: 10%;">Last Snapshot</th>
+                        <th style="width: 10%;">Created</th>
+                        <th style="width: 16%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -392,6 +468,14 @@ function renderApplications(data, container) {
                         const appState = app.state || 'Unknown';
                         const appLastSnapshot = app.lastSnapshot || null;
                         const appCreated = app.created || null;
+                        const appLabels = app.labels || {};
+                        
+                        // Format labels for display
+                        const labelsHtml = Object.keys(appLabels).length > 0 
+                            ? Object.entries(appLabels)
+                                .map(([key, value]) => `<span class="label-badge">${escapeHtml(key)}=${escapeHtml(value)}</span>`)
+                                .join(' ')
+                            : '<span class="text-muted">No labels</span>';
                         
                         const appId = `${appName}:${appNamespace}`;
                         const isChecked = selectedApplications.has(appId) ? 'checked' : '';
@@ -401,12 +485,38 @@ function renderApplications(data, container) {
                             <td><strong>${escapeHtml(appName)}</strong></td>
                             <td>${escapeHtml(appNamespace)}</td>
                             <td>${getStatusBadge(appState)}</td>
+                            <td>
+                                <span class="replica-count" 
+                                      data-app-name="${escapeHtml(appName)}" 
+                                      data-app-namespace="${escapeHtml(appNamespace)}"
+                                      onmouseenter="showReplicaTooltip(this, '${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')"
+                                      onmouseleave="scheduleHideReplicaTooltip()"
+                                      style="cursor: pointer; position: relative;">
+                                    <span class="replica-number">...</span>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="volume-group-count" 
+                                      data-app-name="${escapeHtml(appName)}" 
+                                      data-app-namespace="${escapeHtml(appNamespace)}"
+                                      onmouseenter="showVolumeGroupTooltip(this, '${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')"
+                                      onmouseleave="scheduleHideVolumeGroupTooltip()"
+                                      style="cursor: pointer; position: relative;">
+                                    <span class="volume-group-number">...</span>
+                                </span>
+                            </td>
+                            <td>${labelsHtml}</td>
                             <td>${formatDate(appLastSnapshot)}</td>
                             <td>${formatDate(appCreated)}</td>
                             <td>
-                                <button class="btn-snapshot" onclick="showSnapshotModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')" title="Create Snapshot">
-                                    📸 Snapshot
-                                </button>
+                                <div class="action-buttons">
+                                    <button class="btn-snapshot" onclick="showSnapshotModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')">
+                                        📸 Snapshot
+                                    </button>
+                                    <button class="btn-snapshot" onclick="showEditLabelsModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')">
+                                        ✏️ Labels
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `}).join('')}
@@ -415,9 +525,422 @@ function renderApplications(data, container) {
         </div>
     `;
     container.innerHTML = html;
+    
+    // Fetch replica counts and volume group info for all applications
+    fetchReplicaCounts(data);
+    fetchVolumeGroupInfo(data);
+}
+
+// Cache for replica data to avoid repeated API calls
+const replicaCache = new Map();
+let tooltipTimeout = null;
+let hideTooltipTimeout = null;
+
+async function fetchReplicaCounts(applications) {
+    // Fetch replica counts for all applications in parallel
+    const promises = applications.map(async (app) => {
+        const appName = app.name;
+        const appNamespace = app.namespace;
+        const cacheKey = `${appNamespace}/${appName}`;
+        
+        try {
+            const response = await fetch(`/api/applications/${appNamespace}/${appName}/pods`);
+            if (response.ok) {
+                const data = await response.json();
+                replicaCache.set(cacheKey, data);
+                
+                // Update the UI
+                const replicaElements = document.querySelectorAll(
+                    `.replica-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"]`
+                );
+                replicaElements.forEach(el => {
+                    const numberEl = el.querySelector('.replica-number');
+                    numberEl.textContent = data.replicas;
+                    
+                    // Add tooltip with selector info
+                    if (data.selector) {
+                        el.title = `Selector: ${data.selector}`;
+                    }
+                    
+                    if (data.replicas > 0) {
+                        numberEl.style.fontWeight = 'bold';
+                        numberEl.style.color = '#2ecc71';
+                    } else {
+                        numberEl.style.color = '#95a5a6';
+                        // If 0 replicas, add a warning indicator
+                        if (data.selector) {
+                            el.title = `No pods found with selector: ${data.selector}`;
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error(`Error fetching replica count for ${appName}:`, error);
+            const replicaElements = document.querySelectorAll(
+                `.replica-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"] .replica-number`
+            );
+            replicaElements.forEach(el => {
+                el.textContent = '?';
+                el.style.color = '#e74c3c';
+                el.parentElement.title = 'Error fetching replica count';
+            });
+        }
+    });
+    
+    await Promise.all(promises);
+}
+
+function showReplicaTooltip(element, appName, appNamespace) {
+    // Clear any existing hide timeout
+    if (hideTooltipTimeout) {
+        clearTimeout(hideTooltipTimeout);
+        hideTooltipTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+    }
+    
+    // Add a small delay before showing tooltip
+    tooltipTimeout = setTimeout(() => {
+        const cacheKey = `${appNamespace}/${appName}`;
+        const data = replicaCache.get(cacheKey);
+        
+        if (!data || !data.pods || data.pods.length === 0) {
+            return;
+        }
+        
+        // Remove any existing tooltip
+        const existingTooltip = document.getElementById('replica-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'replica-tooltip';
+        tooltip.className = 'info-tooltip';
+        
+        // Add hover handlers to keep tooltip visible
+        tooltip.addEventListener('mouseenter', () => {
+            if (hideTooltipTimeout) {
+                clearTimeout(hideTooltipTimeout);
+                hideTooltipTimeout = null;
+            }
+        });
+        tooltip.addEventListener('mouseleave', () => {
+            scheduleHideReplicaTooltip();
+        });
+        
+        // Build tooltip content
+        let tooltipContent = '<div class="tooltip-header">Pod Distribution</div>';
+        tooltipContent += '<div class="tooltip-body">';
+        
+        // Display all pods in a flat list with single spacing
+        data.pods.forEach((pod, podIndex) => {
+            const statusColor = pod.phase === 'Running' ? '#2ecc71' : '#f39c12';
+            
+            // Pod name as first item with status indicator
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="background-color: ${statusColor};"></span>
+                <span class="tooltip-item-label">Pod:</span>
+                <span class="tooltip-item-value">${escapeHtml(pod.name)}</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">Status:</span>
+                <span class="tooltip-item-value">${escapeHtml(pod.phase)} - ${pod.ready} ready</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">Node:</span>
+                <span class="tooltip-item-value">${escapeHtml(pod.node)}</span>
+            </div>`;
+            
+            // Add separator line between pods (but not after the last pod)
+            if (podIndex < data.pods.length - 1) {
+                tooltipContent += `<div style="border-bottom: 1px solid #e9ecef; margin: 8px 0;"></div>`;
+            }
+        });
+        
+        tooltipContent += '</div>';
+        tooltip.innerHTML = tooltipContent;
+        
+        // Position tooltip
+        document.body.appendChild(tooltip);
+        const rect = element.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = `${rect.left}px`;
+        tooltip.style.top = `${rect.bottom + 5}px`;
+        
+        // Adjust if tooltip goes off screen
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (tooltipRect.right > window.innerWidth) {
+            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        }
+        if (tooltipRect.bottom > window.innerHeight) {
+            tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        }
+    }, 500); // 500ms delay for text selection
+}
+
+function scheduleHideReplicaTooltip() {
+    // Clear any existing show timeout
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+        tooltipTimeout = null;
+    }
+    
+    // Schedule hiding the tooltip after a short delay
+    hideTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('replica-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200); // 200ms delay before hiding
+}
+
+function hideReplicaTooltip() {
+    if (tooltipTimeout) {
+        clearTimeout(tooltipTimeout);
+        tooltipTimeout = null;
+    }
+    if (hideTooltipTimeout) {
+        clearTimeout(hideTooltipTimeout);
+        hideTooltipTimeout = null;
+    }
+    
+    const tooltip = document.getElementById('replica-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
+// Cache for volume group data to avoid repeated API calls
+const volumeGroupCache = new Map();
+let volumeGroupTooltipTimeout = null;
+let hideVolumeGroupTooltipTimeout = null;
+
+async function fetchVolumeGroupInfo(applications) {
+    // Fetch volume group info for all applications in parallel
+    const promises = applications.map(async (app) => {
+        const appName = app.name;
+        const appNamespace = app.namespace;
+        const cacheKey = `${appNamespace}/${appName}`;
+        
+        try {
+            const response = await fetch(`/api/applications/${appNamespace}/${appName}/pvcs`);
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`[VG] Got data for ${appName}:`, data);
+                volumeGroupCache.set(cacheKey, data);
+                
+                // Update the UI
+                const vgElements = document.querySelectorAll(
+                    `.volume-group-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"]`
+                );
+                console.log(`[VG] Found ${vgElements.length} elements for ${appName}`);
+                vgElements.forEach(el => {
+                    const numberEl = el.querySelector('.volume-group-number');
+                    console.log(`[VG] Updating element for ${appName}, count=${data.count}`);
+                    numberEl.textContent = data.count;
+                    
+                    if (data.count > 0) {
+                        numberEl.style.fontWeight = 'bold';
+                        numberEl.style.color = '#2ecc71';
+                    } else {
+                        numberEl.style.color = '#95a5a6';
+                    }
+                });
+            } else {
+                // Handle non-OK response
+                const vgElements = document.querySelectorAll(
+                    `.volume-group-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"] .volume-group-number`
+                );
+                vgElements.forEach(el => {
+                    el.textContent = '?';
+                    el.style.color = '#e74c3c';
+                    el.parentElement.title = `Error: ${response.status} ${response.statusText}`;
+                });
+            }
+        } catch (error) {
+            console.error(`Error fetching volume group info for ${appName}:`, error);
+            const vgElements = document.querySelectorAll(
+                `.volume-group-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"] .volume-group-number`
+            );
+            vgElements.forEach(el => {
+                el.textContent = '?';
+                el.style.color = '#e74c3c';
+                el.parentElement.title = 'Error fetching volume group info';
+            });
+        }
+    });
+    
+    await Promise.all(promises);
+}
+
+function showVolumeGroupTooltip(element, appName, appNamespace) {
+    // Clear any existing hide timeout
+    if (hideVolumeGroupTooltipTimeout) {
+        clearTimeout(hideVolumeGroupTooltipTimeout);
+        hideVolumeGroupTooltipTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (volumeGroupTooltipTimeout) {
+        clearTimeout(volumeGroupTooltipTimeout);
+    }
+    
+    // Add delay before showing tooltip to allow text selection
+    volumeGroupTooltipTimeout = setTimeout(() => {
+        const cacheKey = `${appNamespace}/${appName}`;
+        const data = volumeGroupCache.get(cacheKey);
+        
+        if (!data || !data.pvcs || data.pvcs.length === 0) {
+            return;
+        }
+        
+        // Remove any existing tooltip
+        const existingTooltip = document.getElementById('volume-group-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'volume-group-tooltip';
+        tooltip.className = 'info-tooltip';
+        
+        // Add hover handlers to keep tooltip visible
+        tooltip.addEventListener('mouseenter', () => {
+            if (hideVolumeGroupTooltipTimeout) {
+                clearTimeout(hideVolumeGroupTooltipTimeout);
+                hideVolumeGroupTooltipTimeout = null;
+            }
+        });
+        tooltip.addEventListener('mouseleave', () => {
+            scheduleHideVolumeGroupTooltip();
+        });
+        
+        // Build tooltip content
+        let tooltipContent = '<div class="tooltip-header">Volume Groups</div>';
+        tooltipContent += '<div class="tooltip-body">';
+        
+        data.pvcs.forEach((pvc, pvcIndex) => {
+            // Map "Bound" status to "Connected"
+            const displayStatus = pvc.status === 'Bound' ? 'Connected' : pvc.status;
+            const statusColor = pvc.status === 'Bound' ? '#2ecc71' : '#f39c12';
+            
+            // PVC name as first item with status indicator
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="background-color: ${statusColor};"></span>
+                <span class="tooltip-item-label">PVC:</span>
+                <span class="tooltip-item-value">${escapeHtml(pvc.name)}</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">Status:</span>
+                <span class="tooltip-item-value">${escapeHtml(displayStatus)}</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">Capacity:</span>
+                <span class="tooltip-item-value">${escapeHtml(pvc.capacity)}</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">PV:</span>
+                <span class="tooltip-item-value">${escapeHtml(pvc.pvName)}</span>
+            </div>`;
+            
+            // Show Volume Group if available (without gray box)
+            if (pvc.volumeGroup) {
+                tooltipContent += `<div class="tooltip-item">
+                    <span class="tooltip-status" style="visibility: hidden;"></span>
+                    <span class="tooltip-item-label">Volume Group:</span>
+                    <span class="tooltip-item-value">${escapeHtml(pvc.volumeGroup)}</span>
+                </div>`;
+            }
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">Storage Class:</span>
+                <span class="tooltip-item-value">${escapeHtml(pvc.storageClass)}</span>
+            </div>`;
+            
+            // Add separator line between PVCs (but not after the last one)
+            if (pvcIndex < data.pvcs.length - 1) {
+                tooltipContent += `<div style="border-bottom: 1px solid #e9ecef; margin: 8px 0;"></div>`;
+            }
+        });
+        
+        tooltipContent += '</div>';
+        tooltip.innerHTML = tooltipContent;
+        
+        // Position tooltip
+        document.body.appendChild(tooltip);
+        const rect = element.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        tooltip.style.left = `${rect.left}px`;
+        tooltip.style.top = `${rect.bottom + 5}px`;
+        
+        // Adjust if tooltip goes off screen
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (tooltipRect.right > window.innerWidth) {
+            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        }
+        if (tooltipRect.bottom > window.innerHeight) {
+            tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        }
+    }, 500); // 500ms delay for text selection
+}
+
+function scheduleHideVolumeGroupTooltip() {
+    // Clear any existing show timeout
+    if (volumeGroupTooltipTimeout) {
+        clearTimeout(volumeGroupTooltipTimeout);
+        volumeGroupTooltipTimeout = null;
+    }
+    
+    // Schedule hiding the tooltip after a short delay
+    hideVolumeGroupTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('volume-group-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200); // 200ms delay before hiding
+}
+
+function hideVolumeGroupTooltip() {
+    if (volumeGroupTooltipTimeout) {
+        clearTimeout(volumeGroupTooltipTimeout);
+        volumeGroupTooltipTimeout = null;
+    }
+    if (hideVolumeGroupTooltipTimeout) {
+        clearTimeout(hideVolumeGroupTooltipTimeout);
+        hideVolumeGroupTooltipTimeout = null;
+    }
+    
+    const tooltip = document.getElementById('volume-group-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
 }
 
 function renderSnapshots(data, container) {
+    // Sort snapshots by creation time (newest first)
+    const sortedData = [...data].sort((a, b) => {
+        const timeA = a.creationTime || a.created || '';
+        const timeB = b.creationTime || b.created || '';
+        return timeB.localeCompare(timeA);
+    });
+    
     const html = `
         <div class="bulk-actions-bar" id="snapshot-bulk-actions" style="display: none;">
             <div class="selection-info">
@@ -432,24 +955,26 @@ function renderSnapshots(data, container) {
             <table>
                 <thead>
                     <tr>
-                        <th><input type="checkbox" id="select-all-snapshots" onchange="toggleAllSnapshots(this.checked)"></th>
-                        <th>Name</th>
-                        <th>Application</th>
-                        <th>Namespace</th>
-                        <th>Status</th>
-                        <th>Expires After</th>
-                        <th>Created</th>
-                        <th>Actions</th>
+                        <th style="width: 3%;"><input type="checkbox" id="select-all-snapshots" onchange="toggleAllSnapshots(this.checked)"></th>
+                        <th style="width: 22%;">Name</th>
+                        <th style="width: 15%;">Application</th>
+                        <th style="width: 12%;">Namespace</th>
+                        <th style="width: 15%;">Protection Plan</th>
+                        <th style="width: 8%;">Status</th>
+                        <th style="width: 10%;">Expires After</th>
+                        <th style="width: 12%;">Created</th>
+                        <th style="width: 13%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${data.map(snap => {
+                    ${sortedData.map(snap => {
                         const snapName = snap.name || 'Unknown';
                         const snapNamespace = snap.namespace || 'default';
                         const snapApplication = snap.application || 'Unknown';
                         const snapState = snap.state || 'Unknown';
                         const snapExpires = snap.expiresAfter || snap.retentionPeriod || 'Not set';
                         const snapCreated = snap.created || null;
+                        const protectionPlan = snap.protectionPlan || 'Manual';
                         
                         return `
                         <tr>
@@ -457,16 +982,19 @@ function renderSnapshots(data, container) {
                             <td><strong>${escapeHtml(snapName)}</strong></td>
                             <td>${escapeHtml(snapApplication)}</td>
                             <td>${escapeHtml(snapNamespace)}</td>
+                            <td>${escapeHtml(protectionPlan)}</td>
                             <td>${getStatusBadge(snapState)}</td>
                             <td>${escapeHtml(snapExpires)}</td>
                             <td>${formatDate(snapCreated)}</td>
                             <td>
-                                <button class="btn-action btn-restore" onclick="showRestoreModal('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}', '${escapeHtml(snapApplication)}')" title="Restore from snapshot" ${snapState !== 'Ready' ? 'disabled' : ''}>
-                                    ↻ Restore
-                                </button>
-                                <button class="btn-action btn-delete" onclick="deleteSnapshot('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}')" title="Delete snapshot">
-                                    🗑️ Delete
-                                </button>
+                                <div class="action-buttons">
+                                    <button class="btn-restore" onclick="showRestoreModal('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}', '${escapeHtml(snapApplication)}')" title="Restore from snapshot" ${snapState !== 'Ready' ? 'disabled' : ''}>
+                                        ↻ Restore
+                                    </button>
+                                    <button class="btn-delete" onclick="deleteSnapshot('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}')" title="Delete snapshot">
+                                        🗑️ Delete
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `}).join('')}
@@ -483,11 +1011,11 @@ function renderStorageClusters(data, container) {
             <table>
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Prism Central</th>
-                        <th>PRISM ELEMENT UUID</th>
-                        <th>Status</th>
-                        <th>Created</th>
+                        <th style="width: 25%;">Name</th>
+                        <th style="width: 25%;">Prism Central</th>
+                        <th style="width: 30%;">Storage Server UUID</th>
+                        <th style="width: 10%;">Status</th>
+                        <th style="width: 10%;">Created</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -495,7 +1023,7 @@ function renderStorageClusters(data, container) {
                         <tr>
                             <td><strong>${escapeHtml(cluster.name)}</strong></td>
                             <td>${escapeHtml(cluster.prismCentral)}</td>
-                            <td><span class="code">${escapeHtml(cluster.storageServerUUID)}</span></td>
+                            <td><code style="font-size: 0.8125rem; background: var(--neutral-100); padding: 0.25rem 0.5rem; border-radius: 4px;">${escapeHtml(cluster.storageServerUUID)}</code></td>
                             <td>${getStatusBadge(cluster.state)}</td>
                             <td>${formatDate(cluster.created)}</td>
                         </tr>
@@ -513,13 +1041,14 @@ function renderProtectionPlans(data, container) {
             <table>
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Namespace</th>
-                        <th>Schedule</th>
-                        <th>Retention</th>
-                        <th>Status</th>
-                        <th>Last Execution</th>
-                        <th>Actions</th>
+                        <th style="width: 16%;">Name</th>
+                        <th style="width: 10%;">Namespace</th>
+                        <th style="width: 14%;">Selection</th>
+                        <th style="width: 12%;">Schedule</th>
+                        <th style="width: 10%;">Retention</th>
+                        <th style="width: 8%;">Status</th>
+                        <th style="width: 11%;">Last Execution</th>
+                        <th style="width: 19%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -536,29 +1065,71 @@ function renderProtectionPlans(data, container) {
                         const planSchedule = plan.schedule || 'Not set';
                         const planRetention = plan.retention || 'Not set';
                         const planLastExecution = plan.lastExecution || 'Never';
+                        const isDeleting = plan.isDeleting || false;
+                        const hasFinalizers = plan.hasFinalizers || false;
+                        
+                        // Format selection mode display
+                        const selectionMode = plan.selectionMode || 'by-name';
+                        let selectionDisplay = '';
+                        if (selectionMode === 'by-label' && plan.labelSelectorKey && plan.labelSelectorValue) {
+                            selectionDisplay = `<span title="Label-based selection">🏷️ ${escapeHtml(plan.labelSelectorKey)}=${escapeHtml(plan.labelSelectorValue)}</span>`;
+                        } else {
+                            selectionDisplay = '<span title="Application name selection">📝 By Name</span>';
+                        }
+                        
+                        // Show status - if deleting, indicate it's in progress
+                        const displayStatus = isDeleting ? 
+                            '<span class="plan-status inactive">⏳ Deleting...</span>' : 
+                            `<span class="plan-status ${statusClass}">${isEnabled ? 'Active' : 'Disabled'}</span>`;
+                        
+                        // If plan is deleting, disable action buttons but still show them
+                        // This gives better UX than immediately jumping to force delete
+                        const actionButtons = isDeleting ? `
+                            <button class="btn-trigger" disabled title="Plan is being deleted">
+                                ⚡ Trigger
+                            </button>
+                            <button class="btn-toggle" disabled title="Plan is being deleted">
+                                ${toggleText}
+                            </button>
+                            <button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History">
+                                📊 History
+                            </button>
+                            <button class="btn-delete" disabled title="Deletion in progress... If stuck, refresh and use Force Delete">
+                                ⏳ Deleting...
+                            </button>
+                            <button class="btn-delete" onclick="forceDeletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Force Delete (if stuck)">
+                                ⚠️ Force
+                            </button>
+                        ` : `
+                            <button class="btn-trigger" onclick="triggerPlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Trigger Now">
+                                ⚡ Trigger
+                            </button>
+                            <button class="btn-toggle ${toggleClass}" onclick="togglePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}', ${!isEnabled})" title="${isEnabled ? 'Disable' : 'Enable'} Plan">
+                                ${toggleText}
+                            </button>
+                            <button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History">
+                                📊 History
+                            </button>
+                            <button class="btn-edit" onclick="editProtectionPlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Edit Plan">
+                                ✏️ Edit
+                            </button>
+                            <button class="btn-delete" onclick="deletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Delete Plan">
+                                🗑️ Delete
+                            </button>
+                        `;
                         
                         return `
-                        <tr>
+                        <tr ${isDeleting ? 'style="background-color: rgba(156, 163, 175, 0.1); opacity: 0.7;"' : ''}>
                             <td><strong>${escapeHtml(planName)}</strong></td>
                             <td>${escapeHtml(planNamespace)}</td>
+                            <td>${selectionDisplay}</td>
                             <td>${escapeHtml(formatCronSchedule(planSchedule))}</td>
                             <td>${escapeHtml(formatRetention(planRetention))}</td>
-                            <td><span class="plan-status ${statusClass}">${isEnabled ? 'Active' : 'Disabled'}</span></td>
+                            <td>${displayStatus}</td>
                             <td>${formatDate(planLastExecution)}</td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-trigger" onclick="triggerPlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Trigger Now">
-                                        ⚡ Trigger
-                                    </button>
-                                    <button class="btn-toggle ${toggleClass}" onclick="togglePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}', ${!isEnabled})" title="${isEnabled ? 'Disable' : 'Enable'} Plan">
-                                        ${toggleText}
-                                    </button>
-                                    <button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History">
-                                        📊 History
-                                    </button>
-                                    <button class="btn-delete" onclick="deletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Delete Plan">
-                                        🗑️ Delete
-                                    </button>
+                                    ${actionButtons}
                                 </div>
                             </td>
                         </tr>
@@ -601,9 +1172,29 @@ function formatCronSchedule(cronExpression) {
     
     const [minute, hour, day, month, weekday] = parts;
     
+    // Check for "every X hours" pattern FIRST (before daily check)
+    // "0 */6 * * *" -> "Every 6 hours"
+    if (hour.startsWith('*/') && day === '*' && month === '*' && weekday === '*') {
+        const hours = hour.substring(2);
+        if (minute === '0') {
+            return `Every ${hours} hours`;
+        } else {
+            return `Every ${hours} hours at :${minute.padStart(2, '0')}`;
+        }
+    }
+    
+    // Hourly: "0 * * * *" -> "Every hour"
+    if (minute !== '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
+        if (minute === '0') {
+            return 'Every hour';
+        } else {
+            return `Every hour at :${minute.padStart(2, '0')}`;
+        }
+    }
+    
     // Common patterns
     // Daily at specific time: "0 2 * * *" -> "Daily at 2:00 AM"
-    if (day === '*' && month === '*' && weekday === '*') {
+    if (day === '*' && month === '*' && weekday === '*' && !hour.includes('*') && !hour.includes('/')) {
         const hourNum = parseInt(hour);
         const minuteNum = parseInt(minute);
         const period = hourNum >= 12 ? 'PM' : 'AM';
@@ -625,7 +1216,7 @@ function formatCronSchedule(cronExpression) {
     }
     
     // Monthly on specific day: "0 2 15 * *" -> "Monthly on day 15 at 2:00 AM"
-    if (day !== '*' && month === '*' && weekday === '*') {
+    if (day !== '*' && month === '*' && weekday === '*' && !hour.includes('*') && !hour.includes('/')) {
         const hourNum = parseInt(hour);
         const minuteNum = parseInt(minute);
         const period = hourNum >= 12 ? 'PM' : 'AM';
@@ -634,23 +1225,8 @@ function formatCronSchedule(cronExpression) {
         return `Monthly on day ${day} at ${displayHour}:${displayMinute} ${period}`;
     }
     
-    // Hourly: "0 * * * *" -> "Every hour"
-    if (minute !== '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
-        if (minute === '0') {
-            return 'Every hour';
-        } else {
-            return `Every hour at :${minute.padStart(2, '0')}`;
-        }
-    }
-    
-    // Every X hours: "0 */6 * * *" -> "Every 6 hours"
-    if (hour.startsWith('*/')) {
-        const hours = hour.substring(2);
-        return `Every ${hours} hours`;
-    }
-    
     // Every X minutes: "*/15 * * * *" -> "Every 15 minutes"
-    if (minute.startsWith('*/')) {
+    if (minute.startsWith('*/') && hour === '*' && day === '*' && month === '*' && weekday === '*') {
         const minutes = minute.substring(2);
         return `Every ${minutes} minutes`;
     }
@@ -670,6 +1246,8 @@ function getStatusBadge(status) {
         className = 'status-ready';
     } else if (statusLower.includes('pending') || statusLower.includes('creating')) {
         className = 'status-pending';
+    } else if (statusLower.includes('deleting') || statusLower.includes('terminating')) {
+        className = 'status-pending';  // Use pending style for deleting
     } else if (statusLower.includes('failed') || statusLower.includes('error')) {
         className = 'status-failed';
     }
@@ -793,12 +1371,16 @@ async function createSnapshotWithExpiration() {
         const result = await response.json();
         console.log('Snapshot created:', result);
         showToast(`✓ Snapshot created: ${result.snapshot.name}`, 'success');
-         // Reload data immediately
-        await Promise.all([
-            loadSnapshots(),
-            loadStats()
-       
-        ]);
+        
+        // Reload snapshots only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadSnapshots();
+        
+        // Update snapshot count in stats without full reload
+        const statElement = document.getElementById('stat-snapshots');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = currentCount + 1;
+        }
     } catch (error) {
         console.error('Error creating snapshot:', error);
         showToast('✗ Error creating snapshot', 'error');
@@ -812,6 +1394,8 @@ async function deleteSnapshot(name, namespace) {
     }
     
     try {
+        showToast('Deleting snapshot...', 'info');
+        
         const response = await fetch(`/api/snapshots/${namespace}/${name}`, {
             method: 'DELETE'
         });
@@ -833,11 +1417,15 @@ async function deleteSnapshot(name, namespace) {
         console.log('Snapshot deleted:', name);
         showToast(`✓ Snapshot deleted: ${name}`, 'success');
         
-        // Reload data immediately
-        await Promise.all([
-            loadSnapshots(),
-            loadStats()
-        ]);
+        // Reload snapshots only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadSnapshots();
+        
+        // Update snapshot count in stats without full reload
+        const statElement = document.getElementById('stat-snapshots');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = Math.max(0, currentCount - 1);
+        }
     } catch (error) {
         console.error('Error deleting snapshot:', error);
         showToast('✗ Error deleting snapshot', 'error');
@@ -936,23 +1524,75 @@ async function deleteBulkSnapshots() {
         showToast(`✗ Failed to delete snapshots`, 'error');
     }
     
-    // Clear selection and reload data
+    // Clear selection and reload snapshots only
     clearSnapshotSelection();
-    await Promise.all([
-        loadSnapshots(),
-        loadStats()
-    ]);
+    await loadSnapshots();
+    
+    // Update snapshot count in stats without full reload
+    if (successCount > 0) {
+        const statElement = document.getElementById('stat-snapshots');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = Math.max(0, currentCount - successCount);
+        }
+    }
 }
 
 // Snapshot Restore
-function showRestoreModal(snapshotName, namespace, appName) {
+async function showRestoreModal(snapshotName, namespace, appName) {
     const modal = document.getElementById('restore-modal');
     document.getElementById('restore-snapshot-name').textContent = snapshotName;
     document.getElementById('restore-snapshot-name-hidden').value = snapshotName;
     document.getElementById('restore-namespace-hidden').value = namespace;
+    document.getElementById('restore-app-name-hidden').value = appName;
     document.getElementById('restore-name').value = `${appName}-restore-${Date.now()}`;
-    document.getElementById('restore-target-namespace').value = namespace;
+    
+    
+    // Load namespaces for the dropdown
+    await loadRestoreNamespaces(namespace);
+    
     modal.style.display = 'flex';
+}
+
+async function loadRestoreNamespaces(defaultNamespace) {
+    const namespaceSelect = document.getElementById('restore-target-namespace');
+    
+    try {
+        // Show loading state
+        namespaceSelect.innerHTML = '<option value="">Loading namespaces...</option>';
+        
+        const response = await fetch('/api/namespaces');
+        
+        if (response.redirected || response.url.includes('/login')) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const namespaces = data.namespaces || [];
+        
+        // Populate dropdown
+        namespaceSelect.innerHTML = '';
+        namespaces.forEach(ns => {
+            const option = document.createElement('option');
+            option.value = ns;
+            option.textContent = ns;
+            namespaceSelect.appendChild(option);
+        });
+        
+        // Set default namespace
+        if (defaultNamespace && namespaces.includes(defaultNamespace)) {
+            namespaceSelect.value = defaultNamespace;
+        }
+    } catch (error) {
+        console.error('Error loading namespaces:', error);
+        namespaceSelect.innerHTML = '<option value="">Error loading namespaces</option>';
+        showToast('✗ Failed to load namespaces', 'error');
+    }
 }
 
 function closeRestoreModal() {
@@ -961,15 +1601,52 @@ function closeRestoreModal() {
 }
 
 async function restoreSnapshot() {
+    console.log('restoreSnapshot function called');
+    
     const snapshotName = document.getElementById('restore-snapshot-name-hidden').value;
     const namespace = document.getElementById('restore-namespace-hidden').value;
     const restoreName = document.getElementById('restore-name').value;
     const targetNamespace = document.getElementById('restore-target-namespace').value;
+    const appName = document.getElementById('restore-app-name-hidden').value;
+    
+    console.log('Restore snapshot values:', {
+        snapshotName,
+        namespace,
+        restoreName,
+        targetNamespace,
+        appName
+    });
     
     if (!restoreName) {
         showToast('✗ Restore name is required', 'error');
         return;
     }
+    
+    if (!targetNamespace) {
+        showToast('✗ Target namespace is required', 'error');
+        return;
+    }
+    
+    // Validation: Check if application exists - NDK requires it to be deleted first
+    try {
+            const checkResponse = await fetch(`/api/applications/${targetNamespace}/${appName}`);
+            
+            if (checkResponse.ok) {
+                // Application exists - show error
+                showToast('⚠️ Cannot restore: Application still exists. Please delete it first.', 'error');
+                return;
+            } else if (checkResponse.status === 404) {
+                // Application doesn't exist - good to proceed
+                console.log('Application does not exist, proceeding with restore');
+            } else if (checkResponse.redirected || checkResponse.url.includes('/login')) {
+                window.location.href = '/login';
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking application existence:', error);
+            showToast('✗ Error validating restore operation', 'error');
+            return;
+        }
     
     closeRestoreModal();
     
@@ -1002,11 +1679,15 @@ async function restoreSnapshot() {
         console.log('Restore initiated:', result);
         showToast(`✓ Restore initiated: ${result.restore.name}`, 'success');
         
-        // Reload data immediately
-        await Promise.all([
-            loadApplications(),
-            loadStats()
-        ]);
+        // Reload applications only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadApplications();
+        
+        // Update application count in stats without full reload
+        const statElement = document.getElementById('stat-applications');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = currentCount + 1;
+        }
     } catch (error) {
         console.error('Error restoring snapshot:', error);
         showToast('✗ Error restoring snapshot', 'error');
@@ -1148,11 +1829,17 @@ async function createBulkSnapshotsWithExpiration() {
         
         clearSelection();
         
-        // Reload data immediately
-        await Promise.all([
-            loadSnapshots(),
-            loadStats()
-        ]);
+        // Reload snapshots only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadSnapshots();
+        
+        // Update snapshot count in stats without full reload
+        if (successCount > 0) {
+            const statElement = document.getElementById('stat-snapshots');
+            if (statElement) {
+                const currentCount = parseInt(statElement.textContent) || 0;
+                statElement.textContent = currentCount + successCount;
+            }
+        }
     } catch (error) {
         console.error('Error creating bulk snapshots:', error);
         showToast('✗ Error creating bulk snapshots', 'error');
@@ -1173,23 +1860,201 @@ async function showCreatePlanModal() {
     document.getElementById('plan-schedule-type').value = 'preset';
     document.getElementById('plan-schedule-preset').value = '0 2 * * *';
     document.getElementById('plan-schedule-custom').value = '';
-    document.getElementById('plan-retention-type').value = 'count';
     document.getElementById('plan-retention-count').value = '7';
-    document.getElementById('plan-retention-duration').value = '168h';
-    document.getElementById('plan-selector-type').value = 'label';
-    document.getElementById('plan-selector-label-key').value = '';
-    document.getElementById('plan-selector-label-value').value = '';
-    document.getElementById('plan-selector-name').value = '';
     document.getElementById('plan-enabled').checked = true;
     
+    // Reset selection mode to by-name
+    document.querySelector('input[name="plan-selection-mode"][value="by-name"]').checked = true;
+    
+    // Reset label selector dropdowns and custom inputs
+    const labelKeySelect = document.getElementById('plan-label-key');
+    const labelKeyCustom = document.getElementById('plan-label-key-custom');
+    const labelValueSelect = document.getElementById('plan-label-value');
+    const labelValueCustom = document.getElementById('plan-label-value-custom');
+    
+    labelKeySelect.innerHTML = '<option value="">-- Select a label key --</option><option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom key...</option>';
+    labelKeySelect.value = '';
+    labelKeyCustom.value = '';
+    labelKeyCustom.style.display = 'none';
+    
+    labelValueSelect.innerHTML = '<option value="">-- Select a label key first --</option>';
+    labelValueSelect.value = '';
+    labelValueSelect.disabled = true;
+    labelValueCustom.value = '';
+    labelValueCustom.style.display = 'none';
+    
     updateScheduleInput();
-    updateRetentionInput();
-    updateSelectorInput();
+    updateSelectionMode();
     
     // Load namespaces for the dropdown
     await loadPlanNamespaces();
     
+    // Populate applications list with checkboxes
+    populateApplicationsList();
+    
     document.getElementById('plan-modal').style.display = 'flex';
+}
+
+function populateApplicationsList() {
+    const appsList = document.getElementById('plan-applications-list');
+    if (!appsList) return;
+    
+    // Get the selected namespace from the plan form
+    const namespaceSelect = document.getElementById('plan-namespace-select');
+    const customNamespaceInput = document.getElementById('plan-namespace');
+    let selectedNamespace = '';
+    
+    if (namespaceSelect && namespaceSelect.value === '__custom__') {
+        selectedNamespace = customNamespaceInput.value.trim();
+    } else if (namespaceSelect) {
+        selectedNamespace = namespaceSelect.value;
+    }
+    
+    // If no namespace selected, show prompt
+    if (!selectedNamespace || selectedNamespace === '') {
+        appsList.innerHTML = `
+            <div style="color: #666; font-style: italic; text-align: center; padding: 20px;">
+                👆 Please select a namespace first
+            </div>
+        `;
+        return;
+    }
+    
+    // Check if applications data is available
+    if (!allData.applications || allData.applications.length === 0) {
+        appsList.innerHTML = '<div style="color: #999; font-style: italic; text-align: center; padding: 20px;">No applications available in the cluster</div>';
+        return;
+    }
+    
+    // Filter applications by the selected namespace
+    const filteredApps = allData.applications.filter(app => {
+        const appNamespace = app.namespace || 'default';
+        return appNamespace === selectedNamespace;
+    });
+    
+    if (filteredApps.length === 0) {
+        appsList.innerHTML = `
+            <div style="color: #ff6b6b; font-style: italic; text-align: center; padding: 20px;">
+                <div style="font-size: 2em; margin-bottom: 10px;">📭</div>
+                <div>No applications found in namespace <strong>"${selectedNamespace}"</strong></div>
+                <div style="margin-top: 8px; font-size: 0.9em; color: #999;">Deploy an application to this namespace first</div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort applications by name
+    const sortedApps = [...filteredApps].sort((a, b) => {
+        return (a.name || '').localeCompare(b.name || '');
+    });
+    
+    // Build the list with modern styling
+    let html = `
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 12px 15px; margin: -12px -12px 15px -12px; border-radius: 6px 6px 0 0; color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 1.2em;">📁</span>
+                <span style="font-weight: 600; font-size: 1.05em;">${selectedNamespace}</span>
+            </div>
+            <div style="background-color: rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 12px; font-size: 0.9em; font-weight: 600;">
+                ${sortedApps.length} app${sortedApps.length !== 1 ? 's' : ''}
+            </div>
+        </div>
+        <div style="padding: 5px 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px; background-color: #f8f9fa; border-left: 3px solid #667eea; border-radius: 4px;">
+                <div style="font-size: 0.9em; color: #555;">
+                    <strong>💡 Tip:</strong> Select one or more applications to protect
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" onclick="toggleAllApplications(true)" style="
+                        padding: 4px 10px;
+                        font-size: 0.85em;
+                        background-color: #667eea;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        transition: background-color 0.2s;
+                    " onmouseover="this.style.backgroundColor='#5568d3'" onmouseout="this.style.backgroundColor='#667eea'">
+                        Select All
+                    </button>
+                    <button type="button" onclick="toggleAllApplications(false)" style="
+                        padding: 4px 10px;
+                        font-size: 0.85em;
+                        background-color: #6c757d;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-weight: 500;
+                        transition: background-color 0.2s;
+                    " onmouseover="this.style.backgroundColor='#5a6268'" onmouseout="this.style.backgroundColor='#6c757d'">
+                        Clear All
+                    </button>
+                </div>
+            </div>
+    `;
+    
+    sortedApps.forEach((app, index) => {
+        const appName = app.name || 'Unknown';
+        const appNamespace = app.namespace || 'default';
+        const checkboxId = `app-checkbox-${index}`;
+        
+        // Add checkbox for application with modern styling
+        html += `
+            <div class="app-checkbox-item" style="
+                display: flex;
+                align-items: center;
+                padding: 12px 15px;
+                margin: 6px 0;
+                background-color: white;
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            " onmouseover="this.style.borderColor='#667eea'; this.style.boxShadow='0 2px 8px rgba(102,126,234,0.2)'; this.style.transform='translateY(-1px)';" 
+               onmouseout="this.style.borderColor='#e0e0e0'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.05)'; this.style.transform='translateY(0)';"
+               onclick="document.getElementById('${checkboxId}').click(); event.stopPropagation();">
+                <input type="checkbox" 
+                       id="${checkboxId}"
+                       class="app-checkbox" 
+                       data-app-name="${appName}" 
+                       data-app-namespace="${appNamespace}" 
+                       style="
+                           width: 20px;
+                           height: 20px;
+                           margin-right: 12px;
+                           cursor: pointer;
+                           accent-color: #667eea;
+                       "
+                       onclick="event.stopPropagation();">
+                <label for="${checkboxId}" style="
+                    flex: 1;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    margin: 0;
+                    font-weight: 500;
+                    color: #333;
+                ">
+                    <span style="font-size: 1.3em;">📦</span>
+                    <span>${appName}</span>
+                </label>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    appsList.innerHTML = html;
+}
+
+function toggleAllApplications(selectAll) {
+    const checkboxes = document.querySelectorAll('.app-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAll;
+    });
 }
 
 function closePlanModal() {
@@ -1210,31 +2075,252 @@ function updateScheduleInput() {
     }
 }
 
-function updateRetentionInput() {
-    const retentionType = document.getElementById('plan-retention-type').value;
-    const countGroup = document.getElementById('plan-retention-count-group');
-    const durationGroup = document.getElementById('plan-retention-duration-group');
+function updateEditScheduleInput() {
+    const scheduleType = document.getElementById('edit-plan-schedule-type').value;
+    const presetGroup = document.getElementById('edit-plan-schedule-preset-group');
+    const customGroup = document.getElementById('edit-plan-schedule-custom-group');
     
-    if (retentionType === 'count') {
-        countGroup.style.display = 'block';
-        durationGroup.style.display = 'none';
+    if (scheduleType === 'preset') {
+        presetGroup.style.display = 'block';
+        customGroup.style.display = 'none';
     } else {
-        countGroup.style.display = 'none';
-        durationGroup.style.display = 'block';
+        presetGroup.style.display = 'none';
+        customGroup.style.display = 'block';
     }
 }
 
-function updateSelectorInput() {
-    const selectorType = document.getElementById('plan-selector-type').value;
-    const labelGroup = document.getElementById('plan-selector-label-group');
-    const nameGroup = document.getElementById('plan-selector-name-group');
+function updateRetentionInput() {
+    // No longer needed - retention is always count-based (NDK requirement)
+    // The HTML template only has plan-retention-count field
+}
+
+function selectPlanModeCard(mode) {
+    // Remove selected class from all cards
+    document.querySelectorAll('#plan-selection-by-name-card, #plan-selection-by-label-card').forEach(card => {
+        card.classList.remove('selected');
+    });
     
-    if (selectorType === 'label') {
-        labelGroup.style.display = 'block';
-        nameGroup.style.display = 'none';
+    // Add selected class to clicked card
+    const cardId = mode === 'by-name' ? 'plan-selection-by-name-card' : 'plan-selection-by-label-card';
+    document.getElementById(cardId).classList.add('selected');
+    
+    // Check the radio button
+    const radioId = mode === 'by-name' ? 'plan-selection-mode-by-name' : 'plan-selection-mode-by-label';
+    document.getElementById(radioId).checked = true;
+    
+    // Update the display
+    updateSelectionMode();
+}
+
+function updateSelectionMode() {
+    const selectionMode = document.querySelector('input[name="plan-selection-mode"]:checked').value;
+    const byNameDiv = document.getElementById('plan-selection-by-name-div');
+    const byLabelDiv = document.getElementById('plan-selection-by-label-div');
+    
+    if (selectionMode === 'by-name') {
+        byNameDiv.style.display = 'block';
+        byLabelDiv.style.display = 'none';
     } else {
-        labelGroup.style.display = 'none';
-        nameGroup.style.display = 'block';
+        byNameDiv.style.display = 'none';
+        byLabelDiv.style.display = 'block';
+        populateLabelKeyOptions();
+        updateLabelPreview();
+    }
+    
+    // Update card selection styling
+    document.querySelectorAll('#plan-selection-by-name-card, #plan-selection-by-label-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+    const selectedCardId = selectionMode === 'by-name' ? 'plan-selection-by-name-card' : 'plan-selection-by-label-card';
+    document.getElementById(selectedCardId).classList.add('selected');
+}
+
+function populateLabelKeyOptions() {
+    const labelKeySelect = document.getElementById('plan-label-key');
+    const namespaceSelect = document.getElementById('plan-namespace-select');
+    const customNamespaceInput = document.getElementById('plan-namespace');
+    
+    // Get selected namespace
+    let selectedNamespace = '';
+    if (namespaceSelect && namespaceSelect.value === '__custom__') {
+        selectedNamespace = customNamespaceInput.value.trim();
+    } else if (namespaceSelect) {
+        selectedNamespace = namespaceSelect.value;
+    }
+    
+    // Clear existing options except the default and custom option
+    labelKeySelect.innerHTML = '<option value="">-- Select a label key --</option>';
+    
+    if (!selectedNamespace || !allData.applications) {
+        labelKeySelect.innerHTML += '<option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom key...</option>';
+        labelKeySelect.disabled = true;
+        return;
+    }
+    
+    // Collect all unique label keys from applications in the selected namespace
+    const labelKeys = new Set();
+    allData.applications.forEach(app => {
+        if (app.namespace === selectedNamespace && app.labels) {
+            Object.keys(app.labels).forEach(key => labelKeys.add(key));
+        }
+    });
+    
+    // Sort and add to dropdown
+    const sortedKeys = Array.from(labelKeys).sort();
+    sortedKeys.forEach(key => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = key;
+        labelKeySelect.appendChild(option);
+    });
+    
+    // Add custom option at the end
+    labelKeySelect.innerHTML += '<option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom key...</option>';
+    labelKeySelect.disabled = false;
+}
+
+function updateLabelValueOptions() {
+    const labelKeySelect = document.getElementById('plan-label-key');
+    const labelKeyCustom = document.getElementById('plan-label-key-custom');
+    const labelValueSelect = document.getElementById('plan-label-value');
+    const labelValueCustom = document.getElementById('plan-label-value-custom');
+    const selectedKey = labelKeySelect.value;
+    
+    // Handle custom key input
+    if (selectedKey === '__custom__') {
+        labelKeyCustom.style.display = 'block';
+        labelValueSelect.disabled = true;
+        labelValueSelect.innerHTML = '<option value="">-- Enter custom key first --</option>';
+        labelValueCustom.style.display = 'block';
+        labelValueCustom.disabled = false;
+        updateLabelPreview();
+        return;
+    } else {
+        labelKeyCustom.style.display = 'none';
+        labelValueCustom.style.display = 'none';
+    }
+    
+    if (!selectedKey) {
+        labelValueSelect.disabled = true;
+        labelValueSelect.innerHTML = '<option value="">-- Select a label key first --</option>';
+        updateLabelPreview();
+        return;
+    }
+    
+    // Get selected namespace
+    const namespaceSelect = document.getElementById('plan-namespace-select');
+    const customNamespaceInput = document.getElementById('plan-namespace');
+    let selectedNamespace = '';
+    if (namespaceSelect && namespaceSelect.value === '__custom__') {
+        selectedNamespace = customNamespaceInput.value.trim();
+    } else if (namespaceSelect) {
+        selectedNamespace = namespaceSelect.value;
+    }
+    
+    // Clear existing options
+    labelValueSelect.innerHTML = '<option value="">-- Select a label value --</option>';
+    
+    if (!selectedNamespace || !allData.applications) {
+        labelValueSelect.innerHTML += '<option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom value...</option>';
+        labelValueSelect.disabled = false;
+        return;
+    }
+    
+    // Collect all unique values for this key from applications in the selected namespace
+    const labelValues = new Set();
+    allData.applications.forEach(app => {
+        if (app.namespace === selectedNamespace && app.labels && app.labels[selectedKey]) {
+            labelValues.add(app.labels[selectedKey]);
+        }
+    });
+    
+    // Sort and add to dropdown
+    const sortedValues = Array.from(labelValues).sort();
+    sortedValues.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        labelValueSelect.appendChild(option);
+    });
+    
+    // Add custom option at the end
+    labelValueSelect.innerHTML += '<option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom value...</option>';
+    labelValueSelect.disabled = false;
+    
+    updateLabelPreview();
+}
+
+function handleLabelValueChange() {
+    const labelValueSelect = document.getElementById('plan-label-value');
+    const labelValueCustom = document.getElementById('plan-label-value-custom');
+    
+    if (labelValueSelect.value === '__custom__') {
+        labelValueCustom.style.display = 'block';
+        labelValueCustom.focus();
+    } else {
+        labelValueCustom.style.display = 'none';
+    }
+    
+    updateLabelPreview();
+}
+
+function updateLabelPreview() {
+    const labelKeySelect = document.getElementById('plan-label-key');
+    const labelKeyCustom = document.getElementById('plan-label-key-custom');
+    const labelValueSelect = document.getElementById('plan-label-value');
+    const labelValueCustom = document.getElementById('plan-label-value-custom');
+    const previewText = document.getElementById('plan-label-preview-text');
+    const matchCount = document.getElementById('plan-label-match-count');
+    
+    // Get actual label key and value (from dropdown or custom input)
+    let labelKey = '';
+    let labelValue = '';
+    
+    if (labelKeySelect.value === '__custom__') {
+        labelKey = labelKeyCustom.value.trim();
+    } else {
+        labelKey = labelKeySelect.value.trim();
+    }
+    
+    if (labelValueSelect.value === '__custom__') {
+        labelValue = labelValueCustom.value.trim();
+    } else {
+        labelValue = labelValueSelect.value.trim();
+    }
+    
+    if (labelKey && labelValue) {
+        previewText.textContent = `${labelKey}=${labelValue}`;
+        
+        // Count matching applications in the selected namespace
+        const namespaceSelect = document.getElementById('plan-namespace-select');
+        const customNamespaceInput = document.getElementById('plan-namespace');
+        let selectedNamespace = '';
+        
+        if (namespaceSelect && namespaceSelect.value === '__custom__') {
+            selectedNamespace = customNamespaceInput.value.trim();
+        } else if (namespaceSelect) {
+            selectedNamespace = namespaceSelect.value;
+        }
+        
+        if (selectedNamespace && allData.applications) {
+            const matchingApps = allData.applications.filter(app => {
+                const appNamespace = app.namespace || 'default';
+                const appLabels = app.labels || {};
+                return appNamespace === selectedNamespace && appLabels[labelKey] === labelValue;
+            });
+            
+            if (matchingApps.length > 0) {
+                matchCount.innerHTML = `<span style="color: #28a745; font-weight: 600;">✓ ${matchingApps.length} application${matchingApps.length !== 1 ? 's' : ''} match this selector</span>`;
+                matchCount.innerHTML += `<div style="margin-top: 6px; font-size: 0.9em;">${matchingApps.map(app => `• ${app.name}`).join('<br>')}</div>`;
+            } else {
+                matchCount.innerHTML = `<span style="color: #ff6b6b; font-weight: 600;">⚠ No applications match this selector</span>`;
+            }
+        } else {
+            matchCount.innerHTML = '';
+        }
+    } else {
+        previewText.textContent = '-';
+        matchCount.innerHTML = '';
     }
 }
 
@@ -1258,44 +2344,16 @@ async function savePlan() {
         return;
     }
     
-    // Get retention
-    const retentionType = document.getElementById('plan-retention-type').value;
-    const retention = retentionType === 'count'
-        ? parseInt(document.getElementById('plan-retention-count').value)
-        : document.getElementById('plan-retention-duration').value;
+    // Get retention (count-based only, as NDK requires)
+    const retention = parseInt(document.getElementById('plan-retention-count').value);
     
-    // Get selector
-    const selectorType = document.getElementById('plan-selector-type').value;
-    let selector = {};
-    
-    if (selectorType === 'label') {
-        const key = document.getElementById('plan-selector-label-key').value.trim();
-        const value = document.getElementById('plan-selector-label-value').value.trim();
-        
-        if (!key || !value) {
-            showToast('✗ Label key and value are required', 'error');
-            return;
-        }
-        
-        selector = {
-            matchLabels: {
-                [key]: value
-            }
-        };
-    } else {
-        const appName = document.getElementById('plan-selector-name').value.trim();
-        
-        if (!appName) {
-            showToast('✗ Application name is required', 'error');
-            return;
-        }
-        
-        selector = {
-            matchLabels: {
-                'app.kubernetes.io/name': appName
-            }
-        };
+    if (!retention || retention < 1 || retention > 15) {
+        showToast('✗ Retention count must be between 1 and 15', 'error');
+        return;
     }
+    
+    // Get selection mode
+    const selectionMode = document.querySelector('input[name="plan-selection-mode"]:checked').value;
     
     const enabled = document.getElementById('plan-enabled').checked;
     
@@ -1304,9 +2362,59 @@ async function savePlan() {
         namespace: namespace,
         schedule: schedule,
         retention: retention,
-        selector: selector,
-        enabled: enabled
+        enabled: enabled,
+        selectionMode: selectionMode
     };
+    
+    // Handle different selection modes
+    if (selectionMode === 'by-name') {
+        // Get selected applications
+        const selectedApps = [];
+        document.querySelectorAll('.app-checkbox:checked').forEach(checkbox => {
+            selectedApps.push({
+                name: checkbox.dataset.appName,
+                namespace: checkbox.dataset.appNamespace
+            });
+        });
+        
+        if (selectedApps.length === 0) {
+            showToast('✗ Please select at least one application to protect', 'error');
+            return;
+        }
+        
+        planData.applications = selectedApps;
+    } else {
+        // By label selector - get from dropdown or custom input
+        const labelKeySelect = document.getElementById('plan-label-key');
+        const labelKeyCustom = document.getElementById('plan-label-key-custom');
+        const labelValueSelect = document.getElementById('plan-label-value');
+        const labelValueCustom = document.getElementById('plan-label-value-custom');
+        
+        let labelKey = '';
+        let labelValue = '';
+        
+        if (labelKeySelect.value === '__custom__') {
+            labelKey = labelKeyCustom.value.trim();
+        } else {
+            labelKey = labelKeySelect.value.trim();
+        }
+        
+        if (labelValueSelect.value === '__custom__') {
+            labelValue = labelValueCustom.value.trim();
+        } else {
+            labelValue = labelValueSelect.value.trim();
+        }
+        
+        if (!labelKey || !labelValue) {
+            showToast('✗ Label key and value are required', 'error');
+            return;
+        }
+        
+        planData.labelSelector = {
+            key: labelKey,
+            value: labelValue
+        };
+    }
     
     try {
         showToast('Creating protection plan...', 'info');
@@ -1336,11 +2444,15 @@ async function savePlan() {
         showToast('✓ Protection plan created successfully', 'success');
         closePlanModal();
         
-        // Reload data immediately
-        await Promise.all([
-            loadProtectionPlans(),
-            loadStats()
-        ]);
+        // Reload protection plans only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadProtectionPlans();
+        
+        // Update protection plan count in stats without full reload
+        const statElement = document.getElementById('stat-plans');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = currentCount + 1;
+        }
     } catch (error) {
         console.error('Error saving protection plan:', error);
         showToast('✗ Error creating protection plan', 'error');
@@ -1376,14 +2488,62 @@ async function deletePlan(name, namespace) {
         console.log('Protection plan deleted:', name);
         showToast('✓ Protection plan deleted successfully', 'success');
         
-        // Reload data immediately
-        await Promise.all([
-            loadProtectionPlans(),
-            loadStats()
-        ]);
+        // Reload protection plans only (don't reload stats to avoid showing "Unknown" for other resources)
+        await loadProtectionPlans();
+        
+        // Update protection plan count in stats without full reload
+        const statElement = document.getElementById('stat-plans');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = Math.max(0, currentCount - 1);
+        }
     } catch (error) {
         console.error('Error deleting protection plan:', error);
         showToast('✗ Error deleting protection plan', 'error');
+    }
+}
+
+async function forceDeletePlan(name, namespace) {
+    if (!confirm(`⚠️ FORCE DELETE WARNING ⚠️\n\nProtection plan "${name}" is stuck in deletion (likely due to finalizers).\n\nForce delete will:\n• Remove all finalizers\n• Force immediate deletion\n• Bypass normal cleanup procedures\n\nThis should only be used when normal deletion fails.\n\nAre you sure you want to force delete?`)) {
+        return;
+    }
+    
+    try {
+        showToast('Force deleting protection plan...', 'info');
+        
+        const response = await fetch(`/api/protectionplans/${namespace}/${name}?force=true`, {
+            method: 'DELETE'
+        });
+        
+        // Check if we got redirected to login
+        if (response.redirected || response.url.includes('/login')) {
+            console.log('Session expired, redirecting to login');
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (!response.ok) {
+            const result = await response.json();
+            showToast(`✗ Failed to force delete: ${result.error}`, 'error');
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('Protection plan force deleted:', name);
+        showToast('✓ Protection plan force deleted successfully', 'success');
+        
+        // Reload protection plans
+        await loadProtectionPlans();
+        
+        // Update protection plan count in stats
+        const statElement = document.getElementById('stat-plans');
+        if (statElement) {
+            const currentCount = parseInt(statElement.textContent) || 0;
+            statElement.textContent = Math.max(0, currentCount - 1);
+        }
+    } catch (error) {
+        console.error('Error force deleting protection plan:', error);
+        showToast('✗ Error force deleting protection plan', 'error');
     }
 }
 
@@ -1462,6 +2622,138 @@ async function triggerPlan(name, namespace) {
     } catch (error) {
         console.error('Error triggering protection plan:', error);
         showToast('✗ Error triggering protection plan', 'error');
+    }
+}
+
+// Edit Protection Plan
+async function editProtectionPlan(name, namespace) {
+    try {
+        // Fetch current plan details
+        const response = await fetch(`/api/protectionplans/${namespace}/${name}`);
+        
+        if (response.redirected || response.url.includes('/login')) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (!response.ok) {
+            showToast('✗ Failed to load protection plan details', 'error');
+            return;
+        }
+        
+        const plan = await response.json();
+        
+        // Populate form fields
+        document.getElementById('edit-plan-name').value = name;
+        document.getElementById('edit-plan-namespace').value = namespace;
+        document.getElementById('edit-plan-display-name').textContent = name;
+        document.getElementById('edit-plan-display-namespace').textContent = namespace;
+        
+        // Check if schedule matches a preset
+        const presetSchedules = [
+            '0 * * * *',      // Hourly
+            '0 2 * * *',      // Daily at 2:00 AM
+            '0 3 * * 0',      // Weekly on Sunday at 3:00 AM
+            '0 4 1 * *',      // Monthly on 1st at 4:00 AM
+            '0 */6 * * *',    // Every 6 hours
+            '0 */12 * * *',   // Every 12 hours
+            '0 1 * * 1-5'     // Weekdays at 1:00 AM
+        ];
+        
+        const schedule = plan.schedule || '';
+        const isPreset = presetSchedules.includes(schedule);
+        
+        // Always default to preset view for better UX
+        document.getElementById('edit-plan-schedule-type').value = 'preset';
+        
+        if (isPreset) {
+            // If it matches a preset, select it in the dropdown
+            document.getElementById('edit-plan-schedule-preset').value = schedule;
+            document.getElementById('edit-plan-schedule-custom').value = '';
+        } else {
+            // If custom, set a default preset but keep custom value available
+            document.getElementById('edit-plan-schedule-preset').value = '0 2 * * *';
+            document.getElementById('edit-plan-schedule-custom').value = schedule;
+        }
+        
+        // Update visibility (will show preset by default)
+        updateEditScheduleInput();
+        
+        document.getElementById('edit-plan-retention').value = plan.retention || 3;
+        document.getElementById('edit-plan-suspend').value = plan.suspend ? 'true' : 'false';
+        
+        // Show modal
+        document.getElementById('editPlanModal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading protection plan:', error);
+        showToast('✗ Error loading protection plan', 'error');
+    }
+}
+
+function closeEditPlanModal() {
+    document.getElementById('editPlanModal').style.display = 'none';
+}
+
+async function saveProtectionPlan() {
+    const name = document.getElementById('edit-plan-name').value;
+    const namespace = document.getElementById('edit-plan-namespace').value;
+    
+    // Get schedule from the correct field based on schedule type
+    const scheduleType = document.getElementById('edit-plan-schedule-type').value;
+    const schedule = scheduleType === 'preset' 
+        ? document.getElementById('edit-plan-schedule-preset').value
+        : document.getElementById('edit-plan-schedule-custom').value.trim();
+    
+    const retention = parseInt(document.getElementById('edit-plan-retention').value);
+    const suspend = document.getElementById('edit-plan-suspend').value === 'true';
+    
+    // Validate inputs
+    if (!schedule || !retention) {
+        showToast('✗ Please fill in all required fields', 'error');
+        return;
+    }
+    
+    if (retention < 1 || retention > 15) {
+        showToast('✗ Retention must be between 1 and 15', 'error');
+        return;
+    }
+    
+    try {
+        showToast('Updating protection plan...', 'info');
+        
+        const response = await fetch(`/api/protectionplans/${namespace}/${name}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                schedule: schedule,
+                retention: retention,
+                suspend: suspend
+            })
+        });
+        
+        if (response.redirected || response.url.includes('/login')) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        if (!response.ok) {
+            const result = await response.json();
+            showToast(`✗ Failed to update: ${result.error}`, 'error');
+            return;
+        }
+        
+        const result = await response.json();
+        console.log('Protection plan updated:', result);
+        showToast('✓ Protection plan updated successfully', 'success');
+        
+        // Close modal and reload data
+        closeEditPlanModal();
+        await loadProtectionPlans();
+    } catch (error) {
+        console.error('Error updating protection plan:', error);
+        showToast('✗ Error updating protection plan', 'error');
     }
 }
 
@@ -1616,6 +2908,38 @@ async function loadNamespaces() {
     }
 }
 
+async function loadWorkerPools() {
+    try {
+        const response = await fetch('/api/workerpools');
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.getElementById('deploy-worker-pool');
+            
+            // Clear existing options
+            select.innerHTML = '';
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Default (Any available node)';
+            select.appendChild(defaultOption);
+            
+            // Add worker pools
+            if (data.workerPools && data.workerPools.length > 0) {
+                data.workerPools.forEach(pool => {
+                    const option = document.createElement('option');
+                    option.value = pool;
+                    option.textContent = pool;
+                    select.appendChild(option);
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load worker pools:', error);
+        // Keep the default option even if loading fails
+    }
+}
+
 function handleNamespaceChange() {
     const select = document.getElementById('deploy-namespace-select');
     const input = document.getElementById('deploy-namespace');
@@ -1646,6 +2970,15 @@ function handlePlanNamespaceChange() {
         input.required = false;
         input.value = select.value;
     }
+    
+    // Refresh the applications list to show only apps in the selected namespace
+    populateApplicationsList();
+}
+
+// Add event listener for custom namespace input changes
+function handleCustomNamespaceInput() {
+    // Refresh applications list when custom namespace is typed
+    populateApplicationsList();
 }
 
 async function loadPlanNamespaces() {
@@ -1658,11 +2991,19 @@ async function loadPlanNamespaces() {
             // Clear existing options
             select.innerHTML = '';
             
+            // Add placeholder option
+            const placeholderOption = document.createElement('option');
+            placeholderOption.value = '';
+            placeholderOption.textContent = '-- Select a namespace --';
+            placeholderOption.disabled = true;
+            placeholderOption.selected = true;
+            select.appendChild(placeholderOption);
+            
             // Add all namespaces
             data.namespaces.forEach(ns => {
                 const option = document.createElement('option');
                 option.value = ns;
-                option.textContent = ns;
+                option.textContent = `📁 ${ns}`;
                 select.appendChild(option);
             });
             
@@ -1671,9 +3012,6 @@ async function loadPlanNamespaces() {
             customOption.value = '__custom__';
             customOption.textContent = '➕ Create New Namespace...';
             select.appendChild(customOption);
-            
-            // Set default as selected
-            select.value = 'default';
         }
     } catch (error) {
         console.error('Failed to load namespaces for protection plan:', error);
@@ -1711,15 +3049,220 @@ function showDeployModal(appType) {
     document.getElementById('deploy-create-protection-plan').checked = false;
     document.getElementById('deploy-protection-config').style.display = 'none';
     
+    // Reset labels
+    document.getElementById('deploy-labels-container').innerHTML = '';
+    
+    // Reset worker pool
+    document.getElementById('deploy-worker-pool').value = '';
+    
     // Load namespaces for dropdown
     loadNamespaces();
+    
+    // Load worker pools for dropdown
+    loadWorkerPools();
     
     // Show modal
     document.getElementById('deploy-modal').style.display = 'flex';
 }
 
+// Label management functions
+let deployLabelCounter = 0;
+
+function addDeployLabel(key = '', value = '') {
+    const container = document.getElementById('deploy-labels-container');
+    const labelId = `deploy-label-${deployLabelCounter++}`;
+    
+    const labelRow = document.createElement('div');
+    labelRow.className = 'label-row';
+    labelRow.id = labelId;
+    labelRow.innerHTML = `
+        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${key}">
+        <input type="text" class="form-control label-value" placeholder="Label value (e.g., production)" value="${value}">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeDeployLabel('${labelId}')">
+            ➖ Remove
+        </button>
+    `;
+    
+    container.appendChild(labelRow);
+}
+
+function removeDeployLabel(labelId) {
+    const element = document.getElementById(labelId);
+    if (element) {
+        element.remove();
+    }
+}
+
+function suggestDeployLabel(key, value) {
+    addDeployLabel(key, value);
+}
+
+function collectDeployLabels() {
+    const labels = {};
+    const container = document.getElementById('deploy-labels-container');
+    const labelRows = container.querySelectorAll('.label-row');
+    
+    labelRows.forEach(row => {
+        const key = row.querySelector('.label-key').value.trim();
+        const value = row.querySelector('.label-value').value.trim();
+        
+        if (key) {
+            // Validate label key format (Kubernetes naming rules)
+            if (!/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/.test(key)) {
+                throw new Error(`Invalid label key: "${key}". Must be lowercase alphanumeric, dashes, underscores, or dots.`);
+            }
+            
+            // Validate label value format (can be empty)
+            if (value && !/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/.test(value)) {
+                throw new Error(`Invalid label value: "${value}". Must be lowercase alphanumeric, dashes, underscores, or dots.`);
+            }
+            
+            labels[key] = value;
+        }
+    });
+    
+    return labels;
+}
+
 function closeDeployModal() {
     document.getElementById('deploy-modal').style.display = 'none';
+}
+
+// === EDIT LABELS FUNCTIONS ===
+let editLabelCounter = 0;
+let currentEditApp = { name: '', namespace: '' };
+
+async function showEditLabelsModal(appName, namespace) {
+    currentEditApp = { name: appName, namespace: namespace };
+    
+    // Set app info
+    document.getElementById('edit-labels-app-name').textContent = appName;
+    document.getElementById('edit-labels-namespace').textContent = namespace;
+    
+    // Clear existing labels
+    const container = document.getElementById('edit-labels-container');
+    container.innerHTML = '';
+    editLabelCounter = 0;
+    
+    // Fetch current labels from the application
+    try {
+        const response = await fetch(`/api/applications/${namespace}/${appName}`);
+        if (response.ok) {
+            const app = await response.json();
+            const labels = app.labels || {};
+            
+            // Add existing labels (marked as readonly)
+            Object.entries(labels).forEach(([key, value]) => {
+                addEditLabel(key, value, true);
+            });
+            
+            // If no labels, show empty state
+            if (Object.keys(labels).length === 0) {
+                addEditLabel('', '');
+            }
+        } else {
+            console.error('Failed to fetch application labels');
+            addEditLabel('', '');
+        }
+    } catch (error) {
+        console.error('Error fetching application labels:', error);
+        addEditLabel('', '');
+    }
+    
+    // Show modal
+    document.getElementById('edit-labels-modal').style.display = 'flex';
+}
+
+function closeEditLabelsModal() {
+    document.getElementById('edit-labels-modal').style.display = 'none';
+}
+
+function addEditLabel(key = '', value = '', readonly = false) {
+    const container = document.getElementById('edit-labels-container');
+    const labelId = `edit-label-${editLabelCounter++}`;
+    
+    const labelRow = document.createElement('div');
+    labelRow.className = 'label-row';
+    labelRow.id = labelId;
+    
+    // Add readonly badge for existing labels
+    const readonlyBadge = readonly ? '<span style="display: inline-block; background-color: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; margin-left: 8px;">Existing</span>' : '';
+    
+    labelRow.innerHTML = `
+        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${escapeHtml(key)}" ${readonly ? 'readonly' : ''}>
+        <input type="text" class="form-control label-value" placeholder="Label value (e.g., production)" value="${escapeHtml(value)}">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEditLabel('${labelId}')" ${readonly ? 'disabled title="Cannot remove existing labels. Use kubectl command instead."' : ''}>
+            ➖ Remove
+        </button>
+        ${readonlyBadge}
+    `;
+    
+    container.appendChild(labelRow);
+}
+
+function removeEditLabel(labelId) {
+    const element = document.getElementById(labelId);
+    if (element) {
+        element.remove();
+    }
+}
+
+function suggestEditLabel(key, value) {
+    addEditLabel(key, value);
+}
+
+function collectEditLabels() {
+    const labels = {};
+    const container = document.getElementById('edit-labels-container');
+    const labelRows = container.querySelectorAll('.label-row');
+    
+    labelRows.forEach(row => {
+        const key = row.querySelector('.label-key').value.trim();
+        const value = row.querySelector('.label-value').value.trim();
+        
+        if (key) {
+            // Validate label key format (Kubernetes naming rules)
+            // Supports both simple keys and prefixed keys (e.g., app.kubernetes.io/name)
+            const keyPattern = /^([a-z0-9]([-a-z0-9.]*[a-z0-9])?\/)?[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i;
+            if (!keyPattern.test(key)) {
+                throw new Error(`Invalid label key: "${key}". Must follow Kubernetes label naming rules.`);
+            }
+            
+            // Validate label value format (can be empty)
+            if (value && !/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i.test(value)) {
+                throw new Error(`Invalid label value: "${value}". Must be alphanumeric with dashes, underscores, or dots.`);
+            }
+            
+            labels[key] = value;
+        }
+    });
+    
+    return labels;
+}
+
+async function saveApplicationLabels() {
+    try {
+        const labels = collectEditLabels();
+        
+        const response = await fetch(`/api/applications/${currentEditApp.namespace}/${currentEditApp.name}/labels`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ labels: labels })
+        });
+        
+        if (response.ok) {
+            showNotification('Labels updated successfully', 'success');
+            closeEditLabelsModal();
+            loadData('applications'); // Refresh the applications table
+        } else {
+            const error = await response.json();
+            showNotification(`Failed to update labels: ${error.error || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        showNotification(`Error: ${error.message}`, 'error');
+    }
 }
 
 // Toggle protection plan configuration
@@ -1761,7 +3304,19 @@ async function deployApplication() {
         return;
     }
     
+    // Collect and validate labels
+    let labels = {};
+    try {
+        labels = collectDeployLabels();
+    } catch (error) {
+        alert(error.message);
+        return;
+    }
+    
     const template = APP_TEMPLATES[appType];
+    
+    // Get worker pool selection
+    const workerPool = document.getElementById('deploy-worker-pool').value;
     
     // Build deployment configuration
     const deployConfig = {
@@ -1775,14 +3330,24 @@ async function deployApplication() {
         port: template.port,
         password: password || null,  // null means auto-generate
         database: database || null,
-        createNDKApp: createNDKApp
+        createNDKApp: createNDKApp,
+        labels: labels,  // Add labels to deployment config
+        workerPool: workerPool || null  // Add worker pool to deployment config
     };
     
     // Add protection plan config if enabled
     if (createProtectionPlan) {
+        const retention = parseInt(document.getElementById('deploy-protection-retention').value);
+        
+        // Validate retention count (NDK requires 1-15)
+        if (isNaN(retention) || retention < 1 || retention > 15) {
+            alert('Retention count must be a number between 1 and 15');
+            return;
+        }
+        
         deployConfig.protectionPlan = {
             schedule: document.getElementById('deploy-protection-schedule').value,
-            retention: parseInt(document.getElementById('deploy-protection-retention').value)
+            retention: retention
         };
     }
     

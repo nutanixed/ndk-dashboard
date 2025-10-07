@@ -101,15 +101,15 @@ kubectl get svc -l app=ndk-dashboard
 echo ""
 
 # Get LoadBalancer IP
-EXTERNAL_IP=$(kubectl get svc ndk-dashboard-loadbalancer -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+EXTERNAL_IP=$(kubectl get svc ndk-dashboard -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
 
 if [ -z "$EXTERNAL_IP" ]; then
     echo -e "${YELLOW}⚠ LoadBalancer IP not assigned yet${NC}"
     echo "Run this command to check when it's ready:"
-    echo "  kubectl get svc ndk-dashboard-loadbalancer"
+    echo "  kubectl get svc ndk-dashboard"
     echo ""
     echo "If your cluster doesn't support LoadBalancer, use NodePort:"
-    echo "  kubectl patch svc ndk-dashboard-loadbalancer -p '{\"spec\":{\"type\":\"NodePort\"}}'"
+    echo "  kubectl patch svc ndk-dashboard -p '{\"spec\":{\"type\":\"NodePort\"}}'"
 else
     echo -e "${GREEN}✓ Dashboard is accessible at: http://${EXTERNAL_IP}${NC}"
 fi
@@ -120,7 +120,7 @@ echo "Next Steps"
 echo "=========================================="
 echo ""
 echo "1. Access the dashboard:"
-echo "   - Get the external IP: kubectl get svc ndk-dashboard-loadbalancer"
+echo "   - Get the external IP: kubectl get svc ndk-dashboard"
 echo "   - Open in browser: http://<EXTERNAL-IP>"
 echo ""
 echo "2. Login with credentials:"

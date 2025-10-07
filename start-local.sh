@@ -68,4 +68,4 @@ echo "Press Ctrl+C to stop"
 echo ""
 
 # Start the application
-python app.py
+python run.py

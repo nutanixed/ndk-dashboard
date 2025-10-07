@@ -2,24 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: ndk-dashboard-service
-  namespace: default
-  labels:
-    app: ndk-dashboard
-spec:
-  type: ClusterIP
-  ports:
-    - port: 80
-      targetPort: 5000
-      protocol: TCP
-      name: http
-  selector:
-    app: ndk-dashboard
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ndk-dashboard-loadbalancer
+  name: ndk-dashboard
   namespace: default
   labels:
     app: ndk-dashboard

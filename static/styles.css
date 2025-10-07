@@ -416,10 +416,16 @@ input[type="checkbox"]:focus {
 }
 
 .data-table td {
-    padding: 1rem;
+    padding: 0.875rem 1rem;
     border-bottom: 1px solid var(--border-light);
     font-size: 0.875rem;
     color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.data-table td strong {
+    color: var(--neutral-800);
+    font-weight: 600;
 }
 
 .data-table tr:last-child td {
@@ -428,6 +434,18 @@ input[type="checkbox"]:focus {
 
 .data-table tr:hover {
     background-color: var(--hover-overlay);
+}
+
+/* Table Code/UUID Elements */
+.data-table code,
+.data-table .code {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.8125rem;
+    background: var(--neutral-100);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    color: var(--neutral-700);
+    border: 1px solid var(--border-light);
 }
 
 /* Status Badges */
@@ -470,6 +488,45 @@ input[type="checkbox"]:focus {
     background: rgba(100, 116, 139, 0.1);
     color: var(--text-muted);
     border-color: rgba(100, 116, 139, 0.2);
+}
+
+/* Protection Plan Status Badges */
+.plan-status {
+    display: inline-block;
+    padding: 0.375rem 0.875rem;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+}
+
+.plan-status.active {
+    background: rgba(5, 150, 105, 0.1);
+    color: var(--success);
+    border-color: rgba(5, 150, 105, 0.2);
+}
+
+.plan-status.inactive {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-muted);
+    border-color: rgba(100, 116, 139, 0.2);
+}
+
+/* Label Badges */
+.label-badge {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    margin: 0.125rem;
+    background: var(--neutral-100);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    white-space: nowrap;
 }
 
 /* Buttons */
@@ -556,6 +613,17 @@ input[type="checkbox"]:focus {
     border-color: #b91c1c;
 }
 
+.btn-success {
+    background: var(--success);
+    color: var(--text-inverse);
+    border-color: var(--success);
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #047857;
+    border-color: #047857;
+}
+
 .btn-block {
     width: 100%;
     display: flex;
@@ -573,6 +641,143 @@ input[type="checkbox"] {
     height: 18px;
     cursor: pointer;
     accent-color: var(--brand-primary);
+}
+
+/* Radio Buttons - Modern Card Style */
+.radio-card-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.radio-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-light);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.radio-card:hover {
+    border-color: var(--brand-primary);
+    background: var(--hover-overlay);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.radio-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.radio-card input[type="radio"]:checked ~ .radio-card-content {
+    color: var(--brand-primary);
+}
+
+.radio-card input[type="radio"]:checked ~ .radio-card-indicator {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+}
+
+.radio-card input[type="radio"]:checked ~ .radio-card-indicator::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.radio-card.selected {
+    border-color: var(--brand-primary);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(79, 70, 229, 0.04));
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.radio-card-indicator {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    border: 2px solid var(--border-medium);
+    border-radius: 50%;
+    background: var(--bg-card);
+    transition: all 0.2s ease;
+    margin-right: 12px;
+}
+
+.radio-card-indicator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--white);
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+.radio-card-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+    transition: color 0.2s ease;
+}
+
+.radio-card-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.radio-card-text {
+    line-height: 1.4;
+}
+
+/* Radio Buttons - Compact Inline Style */
+.radio-inline-group {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.radio-inline {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.radio-inline:hover {
+    background: var(--hover-overlay);
+}
+
+.radio-inline input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    margin-right: 8px;
+    cursor: pointer;
+    accent-color: var(--brand-primary);
+}
+
+.radio-inline-label {
+    font-weight: 500;
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+    cursor: pointer;
 }
 
 /* Bulk Actions (Applications) */
@@ -958,6 +1163,8 @@ input[type="checkbox"] {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .action-btn,
@@ -967,11 +1174,12 @@ input[type="checkbox"] {
 .btn-snapshot,
 .btn-trigger,
 .btn-toggle,
-.btn-history {
-    padding: 0.375rem 0.75rem;
+.btn-history,
+.btn-edit {
+    padding: 0.5rem 1rem;
     border: 1px solid transparent;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -979,10 +1187,13 @@ input[type="checkbox"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.25rem;
+    gap: 0.375rem;
     white-space: nowrap;
     font-family: inherit;
     background: transparent;
+    width: 120px;
+    line-height: 1.2;
+    box-sizing: border-box;
 }
 
 .action-btn:disabled,
@@ -992,7 +1203,8 @@ input[type="checkbox"] {
 .btn-snapshot:disabled,
 .btn-trigger:disabled,
 .btn-toggle:disabled,
-.btn-history:disabled {
+.btn-history:disabled,
+.btn-edit:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
@@ -1019,12 +1231,23 @@ input[type="checkbox"] {
 }
 
 .btn-toggle {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-muted);
+    border-color: rgba(100, 116, 139, 0.2);
+}
+
+.btn-toggle:hover:not(:disabled) {
+    background: rgba(100, 116, 139, 0.2);
+    border-color: rgba(100, 116, 139, 0.3);
+}
+
+.btn-toggle.enabled {
     background: rgba(217, 119, 6, 0.1);
     color: var(--warning);
     border-color: rgba(217, 119, 6, 0.2);
 }
 
-.btn-toggle:hover:not(:disabled) {
+.btn-toggle.enabled:hover:not(:disabled) {
     background: rgba(217, 119, 6, 0.2);
     border-color: rgba(217, 119, 6, 0.3);
 }
@@ -1040,6 +1263,17 @@ input[type="checkbox"] {
 .btn-delete:hover:not(:disabled) {
     background: rgba(220, 38, 38, 0.2);
     border-color: rgba(220, 38, 38, 0.3);
+}
+
+.btn-edit {
+    background: rgba(14, 165, 233, 0.1);
+    color: #0ea5e9;
+    border-color: rgba(14, 165, 233, 0.2);
+}
+
+.btn-edit:hover:not(:disabled) {
+    background: rgba(14, 165, 233, 0.2);
+    border-color: rgba(14, 165, 233, 0.3);
 }
 
 /* Footer */
@@ -1395,4 +1629,207 @@ input[type="checkbox"] {
 
 .alert-info strong {
     font-weight: 600;
+}
+
+/* === LABEL EDITOR === */
+.label-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.label-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.label-row input:first-child {
+    flex: 1.2; /* Label key slightly wider */
+}
+
+.label-row .btn-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    min-width: auto;
+    flex-shrink: 0;
+}
+
+.label-suggestion {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    margin: 0.125rem;
+    background: var(--neutral-100);
+    color: var(--brand-primary);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.label-suggestion:hover {
+    background: var(--brand-primary);
+    color: var(--white);
+    border-color: var(--brand-primary);
+}
+
+.btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+}
+
+/* === REPLICA TOOLTIP === */
+.replica-count {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.replica-count:hover {
+    background-color: var(--hover-overlay);
+}
+
+/* === VOLUME GROUP TOOLTIP === */
+.volume-group-count {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.volume-group-count:hover {
+    background-color: var(--hover-overlay);
+}
+
+/* === UNIFIED TOOLTIP STYLES === */
+.info-tooltip {
+    position: fixed;
+    background: #ffffff;
+    border: 1px solid #e1e8ed;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 0;
+    z-index: 10000;
+    min-width: 320px;
+    max-width: 500px;
+    max-height: 500px;
+    overflow-y: auto;
+    animation: tooltipFadeIn 0.2s ease;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.info-tooltip .tooltip-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    border-radius: 8px 8px 0 0;
+    letter-spacing: 0.3px;
+}
+
+.info-tooltip .tooltip-body {
+    padding: 12px;
+    user-select: text;
+    cursor: text;
+}
+
+.info-tooltip .tooltip-section {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-tooltip .tooltip-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.info-tooltip .tooltip-section-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.info-tooltip .tooltip-section-subtitle {
+    font-size: 12px;
+    color: #7f8c8d;
+    margin-bottom: 8px;
+}
+
+.info-tooltip .tooltip-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    font-size: 12px;
+    color: #34495e;
+    gap: 8px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+}
+
+.info-tooltip .tooltip-item:hover {
+    background-color: #f8f9fa;
+}
+
+.info-tooltip .tooltip-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.info-tooltip .tooltip-item-name {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 11px;
+    color: #2c3e50;
+    flex: 1;
+}
+
+.info-tooltip .tooltip-item-detail {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+.info-tooltip .tooltip-item-label {
+    font-weight: 500;
+    color: #7f8c8d;
+    min-width: 100px;
+}
+
+.info-tooltip .tooltip-item-value {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 11px;
+    color: #2c3e50;
+    flex: 1;
+    word-break: break-all;
+}
+
+.info-tooltip .tooltip-code {
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #e9ecef;
+}
+
+.replica-number {
+    font-variant-numeric: tabular-nums;
+}
+
+.volume-group-number {
+    font-variant-numeric: tabular-nums;
 }

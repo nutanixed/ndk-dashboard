@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - NDK Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ cache_bust }}">
+    <style>
+        .admin-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .admin-warning-icon {
+            font-size: 24px;
+        }
+        .admin-warning-text {
+            flex: 1;
+        }
+        .admin-warning-text h3 {
+            margin: 0 0 5px 0;
+            color: #856404;
+        }
+        .admin-warning-text p {
+            margin: 0;
+            color: #856404;
+        }
+        .admin-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .admin-tab-btn {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s;
+        }
+        .admin-tab-btn:hover {
+            color: #333;
+            background: #f5f5f5;
+        }
+        .admin-tab-btn.active {
+            color: #1976d2;
+            border-bottom-color: #1976d2;
+        }
+        .admin-tab-content {
+            display: none;
+        }
+        .admin-tab-content.active {
+            display: block;
+        }
+        .resource-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .resource-table th {
+            background: #f5f5f5;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .resource-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .resource-table tr:last-child td {
+            border-bottom: none;
+        }
+        .resource-table tr:hover {
+            background: #f9f9f9;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+            transition: all 0.3s;
+        }
+        .btn-edit {
+            background: #2196f3;
+            color: white;
+        }
+        .btn-edit:hover {
+            background: #1976d2;
+        }
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+        .btn-delete:hover {
+            background: #d32f2f;
+        }
+        .btn-force-delete {
+            background: #ff9800;
+            color: white;
+        }
+        .btn-force-delete:hover {
+            background: #f57c00;
+        }
+        .btn-delete-app-only {
+            background: #9c27b0;
+            color: white;
+        }
+        .btn-delete-app-only:hover {
+            background: #7b1fa2;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h2 {
+            margin: 0;
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+        .modal-close:hover {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #1976d2;
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-active {
+            background: #4caf50;
+            color: white;
+        }
+        .badge-suspended {
+            background: #ff9800;
+            color: white;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <h1>⚙️ Admin Panel</h1>
+                <span class="nav-subtitle">Manage Applications & Protection Plans</span>
+            </div>
+            <div class="nav-actions">
+                <button id="refreshBtn" class="btn btn-secondary">
+                    <span id="refreshIcon">🔄</span> Refresh
+                </button>
+                <a href="{{ url_for('main.index') }}" class="btn btn-secondary">← Dashboard</a>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="{{ url_for('main.index') }}" class="back-link">← Back to Dashboard</a>
+
+        <div class="admin-warning">
+            <div class="admin-warning-icon">⚠️</div>
+            <div class="admin-warning-text">
+                <h3>Admin Area - Use with Caution</h3>
+                <p>Deleting applications is permanent and cannot be undone. Always verify before taking action.</p>
+            </div>
+        </div>
+
+        <div class="admin-tabs">
+            <button class="admin-tab-btn active" data-tab="applications">📦 Applications</button>
+        </div>
+
+        <!-- Applications Tab -->
+        <div class="admin-tab-content active" id="applications-tab">
+            <div class="section-header">
+                <h2>Manage Applications</h2>
+                <div class="filter-controls">
+                    <select id="app-namespace-filter" class="filter-select">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                    <input type="text" id="search-apps" class="search-input" placeholder="Search applications...">
+                </div>
+            </div>
+            <div id="applications-loading" class="loading">Loading applications...</div>
+            <div id="applications-content"></div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Confirm Deletion</h2>
+                <button class="modal-close" onclick="closeDeleteModal()">×</button>
+            </div>
+            <div id="delete-modal-body">
+                <p>Are you sure you want to delete this resource?</p>
+                <p style="color: #f44336; font-weight: 500;">This action cannot be undone.</p>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-delete" onclick="confirmDelete()">Delete</button>
+                <button type="button" class="btn btn-force-delete" onclick="confirmForceDelete()">Force Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDeleteResource = null;
+        let allApplications = [];
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            const icon = document.getElementById('refreshIcon');
+            icon.style.animation = 'spin 1s linear';
+            setTimeout(() => icon.style.animation = '', 1000);
+            loadApplications();
+        });
+
+        // Load applications
+        async function loadApplications() {
+            const loading = document.getElementById('applications-loading');
+            const content = document.getElementById('applications-content');
+            
+            loading.style.display = 'block';
+            content.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/applications');
+                const data = await response.json();
+                allApplications = data;
+                
+                loading.style.display = 'none';
+                renderApplications(data);
+                updateNamespaceFilter(data, 'app-namespace-filter');
+            } catch (error) {
+                loading.style.display = 'none';
+                content.innerHTML = '<div class="empty-state">Error loading applications: ' + error.message + '</div>';
+            }
+        }
+
+        function renderApplications(apps) {
+            const content = document.getElementById('applications-content');
+            
+            if (apps.length === 0) {
+                content.innerHTML = '<div class="empty-state">No applications found</div>';
+                return;
+            }
+            
+            const table = document.createElement('table');
+            table.className = 'resource-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Namespace</th>
+                        <th>State</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${apps.map(app => `
+                        <tr>
+                            <td><strong>${app.name}</strong></td>
+                            <td>${app.namespace}</td>
+                            <td><span class="badge badge-active">${app.state}</span></td>
+                            <td>${new Date(app.created).toLocaleString()}</td>
+                            <td>
+                                <button class="action-btn btn-delete-app-only" onclick="deleteApplicationOnly('${app.namespace}', '${app.name}')" title="Prepare for restore: deletes workloads & PVCs, keeps snapshots">
+                                    🔄 Prepare for Restore
+                                </button>
+                                <button class="action-btn btn-delete" onclick="deleteApplication('${app.namespace}', '${app.name}')" title="Complete cleanup (deletes everything)">
+                                    🗑️ Full Delete
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            content.innerHTML = '';
+            content.appendChild(table);
+        }
+
+        // Update namespace filters
+        function updateNamespaceFilter(items, filterId) {
+            const filter = document.getElementById(filterId);
+            const namespaces = [...new Set(items.map(item => item.namespace))].sort();
+            
+            const currentValue = filter.value;
+            filter.innerHTML = '<option value="all">All Namespaces</option>';
+            namespaces.forEach(ns => {
+                const option = document.createElement('option');
+                option.value = ns;
+                option.textContent = ns;
+                filter.appendChild(option);
+            });
+            filter.value = currentValue;
+        }
+
+        // Filter applications
+        document.getElementById('app-namespace-filter').addEventListener('change', filterApplications);
+        document.getElementById('search-apps').addEventListener('input', filterApplications);
+
+        function filterApplications() {
+            const namespace = document.getElementById('app-namespace-filter').value;
+            const search = document.getElementById('search-apps').value.toLowerCase();
+            
+            let filtered = allApplications;
+            
+            if (namespace !== 'all') {
+                filtered = filtered.filter(app => app.namespace === namespace);
+            }
+            
+            if (search) {
+                filtered = filtered.filter(app => 
+                    app.name.toLowerCase().includes(search) ||
+                    app.namespace.toLowerCase().includes(search)
+                );
+            }
+            
+            renderApplications(filtered);
+        }
+
+        // Delete application only (for restore testing)
+        function deleteApplicationOnly(namespace, name) {
+            currentDeleteResource = {
+                type: 'application-only',
+                namespace: namespace,
+                name: name
+            };
+            
+            document.getElementById('delete-modal-body').innerHTML = `
+                <p>Prepare application for restore:</p>
+                <p style="font-weight: 600;">${name}</p>
+                <p style="color: #666;">Namespace: ${namespace}</p>
+                <div style="background: #e1bee7; border: 1px solid #9c27b0; border-radius: 4px; padding: 10px; margin: 15px 0;">
+                    <p style="margin: 0; color: #4a148c; font-size: 14px;">
+                        <strong>🔄 Prepare for Restore:</strong><br>
+                        This will delete workloads and PVCs to prepare for restore:
+                    </p>
+                    <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
+                        <li>❌ Application CRD</li>
+                        <li>❌ StatefulSet/Deployment</li>
+                        <li>❌ Services & Secrets</li>
+                        <li>❌ PVCs & PVs (data will be restored from snapshot)</li>
+                    </ul>
+                    <p style="margin: 10px 0 0 0; color: #4a148c; font-size: 14px;">
+                        <strong>But will preserve:</strong>
+                    </p>
+                    <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
+                        <li>✓ All snapshots (required for restore)</li>
+                        <li>✓ Protection plans</li>
+                    </ul>
+                </div>
+                <p style="color: #9c27b0; font-weight: 500;">After this, you can restore from a snapshot!</p>
+            `;
+            
+            // Hide force delete button for app-only delete
+            document.querySelector('.btn-force-delete').style.display = 'none';
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        // Delete application (complete cleanup)
+        function deleteApplication(namespace, name) {
+            currentDeleteResource = {
+                type: 'application',
+                namespace: namespace,
+                name: name
+            };
+            
+            document.getElementById('delete-modal-body').innerHTML = `
+                <p>Are you sure you want to delete the application:</p>
+                <p style="font-weight: 600;">${name}</p>
+                <p style="color: #666;">Namespace: ${namespace}</p>
+                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 10px; margin: 15px 0;">
+                    <p style="margin: 0; color: #856404; font-size: 14px;">
+                        <strong>⚠️ Complete Cleanup:</strong><br>
+                        This will delete the application AND all associated resources:
+                    </p>
+                    <ul style="margin: 5px 0 0 20px; color: #856404; font-size: 13px;">
+                        <li>All snapshots</li>
+                        <li>Protection plans targeting this app</li>
+                        <li>Persistent Volume Claims (PVCs)</li>
+                        <li>Persistent Volumes (PVs)</li>
+                        <li>Volume Groups</li>
+                    </ul>
+                </div>
+                <p style="color: #f44336; font-weight: 500;">This action cannot be undone.</p>
+            `;
+            
+            // Show force delete button for full delete
+            document.querySelector('.btn-force-delete').style.display = 'inline-block';
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        // Confirm delete
+        async function confirmDelete() {
+            if (!currentDeleteResource) return;
+            
+            const { type, namespace, name } = currentDeleteResource;
+            
+            // For app-only delete, use the new endpoint
+            const endpoint = type === 'application-only' 
+                ? `/api/applications/${namespace}/${name}?app_only=true`
+                : `/api/applications/${namespace}/${name}`;
+            
+            try {
+                const response = await fetch(endpoint, { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let message = type === 'application-only'
+                        ? `✓ Application prepared for restore (snapshots preserved)`
+                        : `✓ Application deleted successfully`;
+                    
+                    // Show cleanup log if available
+                    if (data.cleanup_log && data.cleanup_log.length > 0) {
+                        message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
+                    }
+                    
+                    alert(message);
+                    closeDeleteModal();
+                    loadApplications();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        // Confirm force delete
+        async function confirmForceDelete() {
+            if (!currentDeleteResource) return;
+            
+            const { type, namespace, name } = currentDeleteResource;
+            const endpoint = `/api/applications/${namespace}/${name}?force=true`;
+            
+            try {
+                const response = await fetch(endpoint, { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let message = `✓ Application force deleted successfully`;
+                    
+                    // Show cleanup log if available
+                    if (data.cleanup_log && data.cleanup_log.length > 0) {
+                        message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
+                    }
+                    
+                    alert(message);
+                    closeDeleteModal();
+                    loadApplications();
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            currentDeleteResource = null;
+        }
+
+        // Initial load
+        loadApplications();
+
+        // Add CSS animation for refresh button
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

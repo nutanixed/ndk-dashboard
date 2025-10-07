@@ -17,25 +17,6 @@ spec:
         app: ndk-dashboard
     spec:
       serviceAccountName: ndk-dashboard
-      initContainers:
-        - name: app-setup
-          image: alpine/git:latest
-          command: ["/bin/sh"]
-          args:
-            - -c
-            - |
-              set -e
-              echo "Cloning NDK Dashboard repository..."
-              git clone https://github.com/YOUR_USERNAME/ndk-dashboard.git /tmp/app || \
-              echo "Using local files (for development)"
-              
-              # For now, we'll create a placeholder
-              # In production, replace with your actual git repo
-              mkdir -p /app
-              echo "App setup complete!"
-          volumeMounts:
-            - name: app-source
-              mountPath: /app
       containers:
         - name: ndk-dashboard
           image: python:3.11-slim
@@ -48,7 +29,7 @@ spec:
               echo "Installing dependencies..."
               pip install --no-cache-dir -r requirements.txt
               echo "Starting Flask application..."
-              python app.py
+              python run.py
           ports:
             - name: http
               containerPort: 5000
@@ -112,9 +93,3 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-          volumeMounts:
-            - name: app-source
-              mountPath: /app
-      volumes:
-        - name: app-source
-          emptyDir: {}

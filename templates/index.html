@@ -17,7 +17,8 @@
                 <button id="refreshBtn" class="btn btn-secondary">
                     <span id="refreshIcon">🔄</span> Refresh
                 </button>
-                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                <a href="{{ url_for('main.admin') }}" class="btn btn-secondary">⚙️ Admin</a>
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Logout</a>
             </div>
         </div>
     </nav>
@@ -140,7 +141,12 @@
         <div class="tab-content" id="snapshots-tab">
             <div class="section-header">
                 <h2>Application Snapshots</h2>
-                <input type="text" id="search-snapshots" class="search-input" placeholder="Search snapshots...">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <select id="protection-plan-filter" class="filter-select" style="min-width: 200px;">
+                        <option value="all">All Protection Plans</option>
+                    </select>
+                    <input type="text" id="search-snapshots" class="search-input" placeholder="Search snapshots...">
+                </div>
             </div>
             <div id="snapshots-loading" class="loading">Loading snapshots...</div>
             <div id="snapshots-content"></div>
@@ -210,22 +216,31 @@
             <div class="modal-body">
                 <p class="modal-description">Restore from snapshot: <strong id="restore-snapshot-name"></strong></p>
                 
-                <div class="form-group">
-                    <label for="restore-name">Restore Name:</label>
-                    <input type="text" id="restore-name" class="form-control" placeholder="Enter restore name" required>
+                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 20px; padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border-left: 3px solid var(--warning);">
+                    <strong>⚠️ Important:</strong> The original application must be deleted first. NDK will recreate all resources (Application, StatefulSet, PVCs, Services) from the snapshot.
                 </div>
                 
                 <div class="form-group">
-                    <label for="restore-target-namespace">Target Namespace:</label>
-                    <input type="text" id="restore-target-namespace" class="form-control" placeholder="Enter target namespace" required>
+                    <label for="restore-name">Restore Operation Name: <span class="required">*</span></label>
+                    <input type="text" id="restore-name" class="form-control" placeholder="Enter restore operation name" required>
+                    <small class="form-help">Name for the restore operation (not the application name)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="restore-target-namespace">Target Namespace: <span class="required">*</span></label>
+                    <select id="restore-target-namespace" class="form-control" required>
+                        <option value="">Loading namespaces...</option>
+                    </select>
+                    <small class="form-help">Namespace where the application will be restored</small>
                 </div>
                 
                 <input type="hidden" id="restore-snapshot-name-hidden">
                 <input type="hidden" id="restore-namespace-hidden">
+                <input type="hidden" id="restore-app-name-hidden">
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeRestoreModal()">Cancel</button>
-                <button class="btn btn-primary" onclick="restoreSnapshot()">Restore</button>
+                <button type="button" class="btn btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="restoreSnapshot()" id="restore-button">Restore</button>
             </div>
         </div>
     </div>
@@ -272,14 +287,19 @@
                     <input type="text" id="plan-name" class="form-control" placeholder="e.g., daily-backup" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="plan-namespace">Namespace: <span class="required">*</span></label>
-                    <select id="plan-namespace-select" class="form-control" onchange="handlePlanNamespaceChange()">
+                <div class="form-group" style="background-color: #f0f8ff; padding: 15px; border-radius: 8px; border: 2px solid #4a90e2;">
+                    <label for="plan-namespace" style="font-weight: bold; color: #2c5aa0; font-size: 1.05em;">
+                        📁 Select Namespace: <span class="required">*</span>
+                    </label>
+                    <select id="plan-namespace-select" class="form-control" onchange="handlePlanNamespaceChange()" style="font-size: 1.05em; padding: 10px;">
+                        <option value="">-- Select a namespace --</option>
                         <option value="default">default</option>
                         <option value="__custom__">➕ Create New Namespace...</option>
                     </select>
-                    <input type="text" id="plan-namespace" class="form-control" placeholder="Enter new namespace name" style="display: none; margin-top: 8px;" required>
-                    <small class="form-help">Select existing or create new</small>
+                    <input type="text" id="plan-namespace" class="form-control" placeholder="Enter new namespace name" style="display: none; margin-top: 8px;" oninput="handleCustomNamespaceInput()" required>
+                    <small class="form-help" style="display: block; margin-top: 8px; color: #2c5aa0; font-weight: 500;">
+                        ℹ️ Protection plans are namespace-scoped. Only applications in the selected namespace can be protected.
+                    </small>
                 </div>
                 
                 <div class="form-group">
@@ -293,6 +313,7 @@
                 <div class="form-group" id="plan-schedule-preset-group">
                     <label for="plan-schedule-preset">Schedule: <span class="required">*</span></label>
                     <select id="plan-schedule-preset" class="form-control">
+                        <option value="0 * * * *">Hourly</option>
                         <option value="0 2 * * *">Daily at 2:00 AM</option>
                         <option value="0 3 * * 0">Weekly on Sunday at 3:00 AM</option>
                         <option value="0 4 1 * *">Monthly on 1st at 4:00 AM</option>
@@ -309,47 +330,94 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="plan-retention-type">Retention Type:</label>
-                    <select id="plan-retention-type" class="form-control" onchange="updateRetentionInput()">
-                        <option value="count">Keep Last N Snapshots</option>
-                        <option value="duration">Keep for Duration</option>
-                    </select>
-                </div>
-                
-                <div class="form-group" id="plan-retention-count-group">
-                    <label for="plan-retention-count">Number of Snapshots: <span class="required">*</span></label>
-                    <input type="number" id="plan-retention-count" class="form-control" value="7" min="1" max="100">
-                </div>
-                
-                <div class="form-group" id="plan-retention-duration-group" style="display: none;">
-                    <label for="plan-retention-duration">Retention Duration: <span class="required">*</span></label>
-                    <select id="plan-retention-duration" class="form-control">
-                        <option value="168h">7 days</option>
-                        <option value="720h">30 days</option>
-                        <option value="2160h">90 days</option>
-                        <option value="4320h">180 days</option>
-                        <option value="8760h">1 year</option>
-                    </select>
+                    <label for="plan-retention-count">Retention (Number of Snapshots): <span class="required">*</span></label>
+                    <input type="number" id="plan-retention-count" class="form-control" value="7" min="1" max="15">
+                    <small class="form-help">Keep the last N snapshots (1-15). Older snapshots will be automatically deleted.</small>
                 </div>
                 
                 <div class="form-group">
-                    <label for="plan-selector-type">Application Selector:</label>
-                    <select id="plan-selector-type" class="form-control" onchange="updateSelectorInput()">
-                        <option value="label">Label Selector</option>
-                        <option value="name">Application Name</option>
-                    </select>
-                </div>
-                
-                <div class="form-group" id="plan-selector-label-group">
-                    <label for="plan-selector-label-key">Label Key: <span class="required">*</span></label>
-                    <input type="text" id="plan-selector-label-key" class="form-control" placeholder="e.g., app">
-                    <label for="plan-selector-label-value" style="margin-top: 10px;">Label Value: <span class="required">*</span></label>
-                    <input type="text" id="plan-selector-label-value" class="form-control" placeholder="e.g., mysql">
-                </div>
-                
-                <div class="form-group" id="plan-selector-name-group" style="display: none;">
-                    <label for="plan-selector-name">Application Name: <span class="required">*</span></label>
-                    <input type="text" id="plan-selector-name" class="form-control" placeholder="e.g., mysql-app">
+                    <label style="font-weight: 600; font-size: 1.05em; color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                        <span style="font-size: 1.2em;">✅</span>
+                        <span>Application Selection</span>
+                        <span class="required">*</span>
+                    </label>
+                    
+                    <!-- Selection Mode -->
+                    <div style="margin-bottom: 15px;">
+                        <label style="font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: block; font-size: 0.9375rem;">Selection Mode:</label>
+                        <div class="radio-card-group">
+                            <label class="radio-card" id="plan-selection-by-name-card" onclick="selectPlanModeCard('by-name')">
+                                <input type="radio" name="plan-selection-mode" value="by-name" id="plan-selection-mode-by-name" checked onchange="updateSelectionMode()">
+                                <span class="radio-card-content">
+                                    <span class="radio-card-text">
+                                        <strong>By Application Name</strong><br>
+                                        <small style="color: var(--text-muted); font-weight: 400;">Select specific apps</small>
+                                    </span>
+                                </span>
+                            </label>
+                            <label class="radio-card" id="plan-selection-by-label-card" onclick="selectPlanModeCard('by-label')">
+                                <input type="radio" name="plan-selection-mode" value="by-label" id="plan-selection-mode-by-label" onchange="updateSelectionMode()">
+                                <span class="radio-card-content">
+                                    <span class="radio-card-text">
+                                        <strong>By Label Selector</strong><br>
+                                        <small style="color: var(--text-muted); font-weight: 400;">Match by labels</small>
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- By Name Selection -->
+                    <div id="plan-selection-by-name-div" style="display: block;">
+                        <div id="plan-applications-list" style="
+                            max-height: 350px; 
+                            overflow-y: auto; 
+                            border: 2px solid #e0e0e0; 
+                            border-radius: 8px; 
+                            padding: 12px; 
+                            background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
+                            box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+                        ">
+                            <div style="color: #999; font-style: italic; text-align: center; padding: 30px 20px;">
+                                <div style="font-size: 2.5em; margin-bottom: 10px; opacity: 0.5;">☝️</div>
+                                <div style="font-size: 1.05em;">Please select a namespace first</div>
+                            </div>
+                        </div>
+                        <small class="form-help" style="display: block; margin-top: 8px; color: #666; font-size: 0.9em;">
+                            <span style="color: #667eea;">ℹ️</span> Select specific applications by name
+                        </small>
+                    </div>
+                    
+                    <!-- By Label Selection -->
+                    <div id="plan-selection-by-label-div" style="display: none;">
+                        <div style="background-color: #fff; border: 2px solid #e0e0e0; border-radius: 8px; padding: 15px;">
+                            <div style="margin-bottom: 12px;">
+                                <label for="plan-label-key" style="font-weight: 600; color: #555; display: block; margin-bottom: 6px;">Label Key: <span class="required">*</span></label>
+                                <select id="plan-label-key" class="form-control" onchange="updateLabelValueOptions()">
+                                    <option value="">-- Select a label key --</option>
+                                    <option value="__custom__" style="font-style: italic; color: #667eea;">✏️ Enter custom key...</option>
+                                </select>
+                                <input type="text" id="plan-label-key-custom" class="form-control" placeholder="Enter custom label key" style="display: none; margin-top: 8px;" oninput="updateLabelPreview()">
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label for="plan-label-value" style="font-weight: 600; color: #555; display: block; margin-bottom: 6px;">Label Value: <span class="required">*</span></label>
+                                <select id="plan-label-value" class="form-control" onchange="handleLabelValueChange()" disabled>
+                                    <option value="">-- Select a label key first --</option>
+                                </select>
+                                <input type="text" id="plan-label-value-custom" class="form-control" placeholder="Enter custom label value" style="display: none; margin-top: 8px;" oninput="updateLabelPreview()">
+                            </div>
+                            <div id="plan-label-preview" style="margin-top: 15px; padding: 12px; background-color: #f0f8ff; border-radius: 6px; border-left: 3px solid #4a90e2;">
+                                <div style="font-weight: 600; color: #2c5aa0; margin-bottom: 6px;">📋 Preview:</div>
+                                <div style="color: #666; font-family: monospace; font-size: 0.95em;">
+                                    Will protect all applications with label: <span id="plan-label-preview-text" style="color: #667eea; font-weight: 600;">-</span>
+                                </div>
+                                <div id="plan-label-match-count" style="margin-top: 8px; color: #555; font-size: 0.9em;"></div>
+                            </div>
+                        </div>
+                        <small class="form-help" style="display: block; margin-top: 8px; color: #666; font-size: 0.9em;">
+                            <span style="color: #667eea;">ℹ️</span> Dynamically protects all applications matching the label selector
+                        </small>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -421,6 +489,14 @@
                         <input type="number" id="deploy-replicas" class="form-control" value="1" min="1" max="10">
                         <small class="form-help">Number of pod replicas (StatefulSet)</small>
                     </div>
+                    
+                    <div class="form-group">
+                        <label for="deploy-worker-pool">Worker Pool (Optional):</label>
+                        <select id="deploy-worker-pool" class="form-control">
+                            <option value="">Default (Any available node)</option>
+                        </select>
+                        <small class="form-help">Restrict deployment to specific worker pool nodes</small>
+                    </div>
                 </div>
                 
                 <div class="form-section">
@@ -436,8 +512,8 @@
                     
                     <div class="form-group">
                         <label for="deploy-storage-size">Storage Size:</label>
-                        <input type="text" id="deploy-storage-size" class="form-control" value="10Gi" placeholder="e.g., 10Gi, 50Gi">
-                        <small class="form-help">Size per replica (e.g., 10Gi, 50Gi, 100Gi)</small>
+                        <input type="text" id="deploy-storage-size" class="form-control" value="10GB" placeholder="e.g., 10GB, 50GB">
+                        <small class="form-help">Size per replica (e.g., 10GB, 50GB, 100GB)</small>
                     </div>
                 </div>
                 
@@ -453,6 +529,26 @@
                     <div class="form-group" id="deploy-database-group" style="display: none;">
                         <label for="deploy-database">Database Name:</label>
                         <input type="text" id="deploy-database" class="form-control" placeholder="e.g., mydb">
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">🏷️ Labels (Optional)</h4>
+                    
+                    <div class="form-group">
+                        <div id="deploy-labels-container">
+                            <!-- Labels will be added here dynamically -->
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addDeployLabel()" style="margin-top: 8px;">
+                            ➕ Add Label
+                        </button>
+                        <small class="form-help" style="display: block; margin-top: 8px;">
+                            Add labels to organize applications for Protection Plans. Common labels:
+                            <span class="label-suggestion" onclick="suggestDeployLabel('environment', 'production')">environment</span>
+                            <span class="label-suggestion" onclick="suggestDeployLabel('tier', 'database')">tier</span>
+                            <span class="label-suggestion" onclick="suggestDeployLabel('app', '')">app</span>
+                            <span class="label-suggestion" onclick="suggestDeployLabel('backup-policy', 'daily')">backup-policy</span>
+                        </small>
                     </div>
                 </div>
                 
@@ -488,8 +584,8 @@
                         
                         <div class="form-group">
                             <label for="deploy-protection-retention">Retention:</label>
-                            <input type="number" id="deploy-protection-retention" class="form-control" value="7" min="1" max="100">
-                            <small class="form-help">Number of snapshots to keep</small>
+                            <input type="number" id="deploy-protection-retention" class="form-control" value="7" min="1" max="15">
+                            <small class="form-help">Number of snapshots to keep (1-15)</small>
                         </div>
                     </div>
                 </div>
@@ -502,6 +598,126 @@
                 <button class="btn btn-secondary" onclick="closeDeployModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="deployApplication()">
                     <span id="deploy-btn-text">🚀 Deploy Application</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Labels Modal -->
+    <div id="edit-labels-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Edit Labels</h3>
+                <button class="modal-close" onclick="closeEditLabelsModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label><strong>Application:</strong> <span id="edit-labels-app-name"></span></label>
+                    <label><strong>Namespace:</strong> <span id="edit-labels-namespace"></span></label>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        🏷️ Labels
+                        <span class="info-icon" title="Labels help organize applications and enable label-based Protection Plans. Use lowercase alphanumeric characters, dashes, underscores, or dots.">ℹ️</span>
+                    </h4>
+                    
+                    <div class="form-group">
+                        <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 12px; background-color: #e7f3ff; border-left: 3px solid #2196F3; font-size: 0.9em;">
+                            <strong>Note:</strong> Removing labels is not supported through this interface. You can only add new labels or update existing ones. To remove labels, use <code>kubectl label application &lt;app_name&gt; -n &lt;namespace&gt; &lt;label_key&gt;-</code> command.
+                        </div>
+                        <div id="edit-labels-container">
+                            <!-- Labels will be added here dynamically -->
+                        </div>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addEditLabel()" style="margin-top: 8px;">
+                            ➕ Add Label
+                        </button>
+                        <small class="form-help" style="display: block; margin-top: 8px;">
+                            Common labels:
+                            <span class="label-suggestion" onclick="suggestEditLabel('environment', 'production')">environment</span>
+                            <span class="label-suggestion" onclick="suggestEditLabel('tier', 'database')">tier</span>
+                            <span class="label-suggestion" onclick="suggestEditLabel('app', '')">app</span>
+                            <span class="label-suggestion" onclick="suggestEditLabel('backup-policy', 'daily')">backup-policy</span>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditLabelsModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveApplicationLabels()">
+                    💾 Save Labels
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Protection Plan Modal -->
+    <div id="editPlanModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>✏️ Edit Protection Plan</h3>
+                <button class="modal-close" onclick="closeEditPlanModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="editPlanForm">
+                    <input type="hidden" id="edit-plan-name">
+                    <input type="hidden" id="edit-plan-namespace">
+                    
+                    <div class="form-group">
+                        <label><strong>Plan Name:</strong> <span id="edit-plan-display-name"></span></label>
+                        <label><strong>Namespace:</strong> <span id="edit-plan-display-namespace"></span></label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-plan-schedule-type">Schedule Type:</label>
+                        <select id="edit-plan-schedule-type" class="form-control" onchange="updateEditScheduleInput()">
+                            <option value="preset">Preset Schedule</option>
+                            <option value="custom">Custom Cron Expression</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="edit-plan-schedule-preset-group">
+                        <label for="edit-plan-schedule-preset">Schedule: <span class="required">*</span></label>
+                        <select id="edit-plan-schedule-preset" class="form-control">
+                            <option value="0 * * * *">Hourly</option>
+                            <option value="0 2 * * *">Daily at 2:00 AM</option>
+                            <option value="0 3 * * 0">Weekly on Sunday at 3:00 AM</option>
+                            <option value="0 4 1 * *">Monthly on 1st at 4:00 AM</option>
+                            <option value="0 */6 * * *">Every 6 hours</option>
+                            <option value="0 */12 * * *">Every 12 hours</option>
+                            <option value="0 1 * * 1-5">Weekdays at 1:00 AM</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="edit-plan-schedule-custom-group" style="display: none;">
+                        <label for="edit-plan-schedule-custom">Cron Expression: <span class="required">*</span></label>
+                        <input type="text" id="edit-plan-schedule-custom" class="form-control" placeholder="e.g., 0 2 * * *">
+                        <small class="form-help">Format: minute hour day month weekday</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-plan-retention">
+                            Retention Count (1-15)
+                            <span class="info-icon" title="Number of snapshots to keep. Older snapshots will be automatically deleted.">ℹ️</span>
+                        </label>
+                        <input type="number" id="edit-plan-retention" min="1" max="15" required>
+                        <small class="form-help">Number of snapshots to keep</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-plan-suspend">Status</label>
+                        <select id="edit-plan-suspend">
+                            <option value="false">Active</option>
+                            <option value="true">Suspended</option>
+                        </select>
+                        <small class="form-help">Suspended plans will not create new snapshots</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeEditPlanModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveProtectionPlan()">
+                    💾 Save Changes
                 </button>
             </div>
         </div>
