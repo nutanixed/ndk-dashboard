@@ -243,14 +243,14 @@
                 <button id="refreshBtn" class="btn btn-secondary">
                     <span id="refreshIcon">🔄</span> Refresh
                 </button>
-                <a href="{{ url_for('main.index') }}" class="btn btn-secondary">← Dashboard</a>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Logout</a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">← Dashboard</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
             </div>
         </div>
     </nav>
 
     <div class="container">
-        <a href="{{ url_for('main.index') }}" class="back-link">← Back to Dashboard</a>
+        <a href="{{ url_for('index') }}" class="back-link">← Back to Dashboard</a>
 
         <div class="admin-warning">
             <div class="admin-warning-icon">⚠️</div>
@@ -361,8 +361,8 @@
                             <td><span class="badge badge-active">${app.state}</span></td>
                             <td>${new Date(app.created).toLocaleString()}</td>
                             <td>
-                                <button class="action-btn btn-delete-app-only" onclick="deleteApplicationOnly('${app.namespace}', '${app.name}')" title="Prepare for restore: deletes workloads & PVCs, keeps snapshots">
-                                    🔄 Prepare for Restore
+                                <button class="action-btn btn-delete-app-only" onclick="deleteApplicationOnly('${app.namespace}', '${app.name}')" title="Delete app only (keeps snapshots & data)">
+                                    🔄 Delete App Only
                                 </button>
                                 <button class="action-btn btn-delete" onclick="deleteApplication('${app.namespace}', '${app.name}')" title="Complete cleanup (deletes everything)">
                                     🗑️ Full Delete
@@ -426,29 +426,23 @@
             };
             
             document.getElementById('delete-modal-body').innerHTML = `
-                <p>Prepare application for restore:</p>
+                <p>Delete application for restore testing:</p>
                 <p style="font-weight: 600;">${name}</p>
                 <p style="color: #666;">Namespace: ${namespace}</p>
                 <div style="background: #e1bee7; border: 1px solid #9c27b0; border-radius: 4px; padding: 10px; margin: 15px 0;">
                     <p style="margin: 0; color: #4a148c; font-size: 14px;">
-                        <strong>🔄 Prepare for Restore:</strong><br>
-                        This will delete workloads and PVCs to prepare for restore:
+                        <strong>🔄 Restore Test Mode:</strong><br>
+                        This will ONLY delete the Application CRD and keep:
                     </p>
                     <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
-                        <li>❌ Application CRD</li>
-                        <li>❌ StatefulSet/Deployment</li>
-                        <li>❌ Services & Secrets</li>
-                        <li>❌ PVCs & PVs (data will be restored from snapshot)</li>
-                    </ul>
-                    <p style="margin: 10px 0 0 0; color: #4a148c; font-size: 14px;">
-                        <strong>But will preserve:</strong>
-                    </p>
-                    <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
-                        <li>✓ All snapshots (required for restore)</li>
+                        <li>✓ All snapshots (for restore)</li>
                         <li>✓ Protection plans</li>
+                        <li>✓ Persistent Volume Claims (PVCs)</li>
+                        <li>✓ Persistent Volumes (PVs)</li>
+                        <li>✓ All data intact</li>
                     </ul>
                 </div>
-                <p style="color: #9c27b0; font-weight: 500;">After this, you can restore from a snapshot!</p>
+                <p style="color: #9c27b0; font-weight: 500;">Perfect for testing restore functionality!</p>
             `;
             
             // Hide force delete button for app-only delete
@@ -506,7 +500,7 @@
                 
                 if (response.ok) {
                     let message = type === 'application-only'
-                        ? `✓ Application prepared for restore (snapshots preserved)`
+                        ? `✓ Application deleted (snapshots & data preserved)`
                         : `✓ Application deleted successfully`;
                     
                     // Show cleanup log if available

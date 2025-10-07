@@ -838,12 +838,13 @@ def update_application_labels(namespace, name):
             name=name
         )
         
-        # Get all existing labels
+        # Preserve system labels
         current_labels = app.get('metadata', {}).get('labels', {})
+        system_labels = {k: v for k, v in current_labels.items() 
+                        if k.startswith('kubectl.kubernetes.io/')}
         
-        # Merge existing labels with new labels (new labels will override existing ones with same key)
-        # This ensures we only add/update labels, never delete them
-        merged_labels = {**current_labels, **new_labels}
+        # Merge system labels with new labels
+        merged_labels = {**system_labels, **new_labels}
         
         # Update the application with new labels
         patch = {
@@ -1365,7 +1366,6 @@ def restore_snapshot(namespace, name):
         }
         
         # Create the restore
-        print(f"📝 Creating ApplicationSnapshotRestore: {restore_name} in namespace {target_namespace}")
         result = k8s_api.create_namespaced_custom_object(
             group=Config.NDK_API_GROUP,
             version=Config.NDK_API_VERSION,
@@ -1373,67 +1373,9 @@ def restore_snapshot(namespace, name):
             plural='applicationsnapshotrestores',
             body=restore_manifest
         )
-        print(f"✓ ApplicationSnapshotRestore created: {restore_name}")
-        
-        # Poll for restore completion (max 5 minutes)
-        print(f"⏳ Waiting for restore operation to complete...")
-        max_wait_time = 300  # 5 minutes
-        poll_interval = 5  # 5 seconds
-        elapsed_time = 0
-        restore_completed = False
-        restore_failed = False
-        failure_reason = None
-        
-        while elapsed_time < max_wait_time:
-            try:
-                restore_status = k8s_api.get_namespaced_custom_object(
-                    group=Config.NDK_API_GROUP,
-                    version=Config.NDK_API_VERSION,
-                    namespace=target_namespace,
-                    plural='applicationsnapshotrestores',
-                    name=restore_name
-                )
-                
-                status = restore_status.get('status', {})
-                
-                # Check if restore is completed
-                if status.get('completed') == True:
-                    restore_completed = True
-                    print(f"✓ Restore operation completed successfully")
-                    break
-                
-                # Check for failure conditions
-                conditions = status.get('conditions', [])
-                for condition in conditions:
-                    if condition.get('type') == 'Failed' and condition.get('status') == 'True':
-                        restore_failed = True
-                        failure_reason = condition.get('message', 'Unknown failure')
-                        print(f"✗ Restore operation failed: {failure_reason}")
-                        break
-                
-                if restore_failed:
-                    break
-                
-                # Still in progress
-                print(f"⏳ Restore in progress... ({elapsed_time}s elapsed)")
-                time.sleep(poll_interval)
-                elapsed_time += poll_interval
-                
-            except ApiException as e:
-                if e.status == 404:
-                    # Restore resource was deleted - might indicate completion or failure
-                    print(f"⚠ Restore resource no longer exists (may have been cleaned up)")
-                    break
-                else:
-                    print(f"⚠ Error checking restore status: {e.reason}")
-                    break
-        
-        if elapsed_time >= max_wait_time:
-            print(f"⚠ Restore polling timeout reached ({max_wait_time}s) - proceeding with Application CRD creation")
         
         # Create Application CRD so the restored app is discoverable in the dashboard
         # This is necessary because NDK snapshots don't include the Application CRD itself
-        print(f"📝 Creating Application CRD for restored app: {app_name}")
         application_manifest = {
             'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
             'kind': 'Application',
@@ -1447,7 +1389,7 @@ def restore_snapshot(namespace, name):
             },
             'spec': {
                 'start': True,
-                'useExistingConfig': False  # Let controller discover existing resources
+                'useExistingConfig': True  # Use existing resources restored from snapshot
             }
         }
         
@@ -1459,30 +1401,22 @@ def restore_snapshot(namespace, name):
                 plural='applications',
                 body=application_manifest
             )
-            print(f"✓ Application CRD created: {app_name}")
         except ApiException as e:
             # If Application already exists, that's okay - log it but don't fail
-            if e.status == 409:  # 409 = Conflict (already exists)
-                print(f"⚠ Application CRD already exists: {app_name}")
-            else:
-                print(f"✗ Failed to create Application CRD: {e.reason}")
+            if e.status != 409:  # 409 = Conflict (already exists)
                 raise
         
         # Invalidate cache
         cache['applications'] = {'data': None, 'timestamp': None}
         
-        completion_status = 'completed' if restore_completed else ('failed' if restore_failed else 'timeout')
-        
         return jsonify({
             'success': True,
-            'message': f'Restore {restore_name} completed successfully. Application {app_name} is now visible in the dashboard.',
+            'message': f'Restore {restore_name} initiated successfully',
             'restore': {
                 'name': restore_name,
                 'namespace': target_namespace,
                 'snapshot': name,
-                'application': app_name,
-                'status': completion_status,
-                'failure_reason': failure_reason if restore_failed else None
+                'application': app_name
             }
         }), 201
         

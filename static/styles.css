@@ -1692,18 +1692,6 @@ input[type="checkbox"] {
     background-color: var(--hover-overlay);
 }
 
-/* === VOLUME GROUP TOOLTIP === */
-.volume-group-count {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.volume-group-count:hover {
-    background-color: var(--hover-overlay);
-}
-
 /* === UNIFIED TOOLTIP STYLES === */
 .info-tooltip {
     position: fixed;

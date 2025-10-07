@@ -735,35 +735,23 @@ async function fetchVolumeGroupInfo(applications) {
             const response = await fetch(`/api/applications/${appNamespace}/${appName}/pvcs`);
             if (response.ok) {
                 const data = await response.json();
-                console.log(`[VG] Got data for ${appName}:`, data);
                 volumeGroupCache.set(cacheKey, data);
                 
                 // Update the UI
                 const vgElements = document.querySelectorAll(
                     `.volume-group-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"]`
                 );
-                console.log(`[VG] Found ${vgElements.length} elements for ${appName}`);
                 vgElements.forEach(el => {
                     const numberEl = el.querySelector('.volume-group-number');
-                    console.log(`[VG] Updating element for ${appName}, count=${data.count}`);
-                    numberEl.textContent = data.count;
                     
                     if (data.count > 0) {
+                        numberEl.textContent = data.count;
                         numberEl.style.fontWeight = 'bold';
                         numberEl.style.color = '#2ecc71';
                     } else {
+                        numberEl.textContent = '0';
                         numberEl.style.color = '#95a5a6';
                     }
-                });
-            } else {
-                // Handle non-OK response
-                const vgElements = document.querySelectorAll(
-                    `.volume-group-count[data-app-name="${appName}"][data-app-namespace="${appNamespace}"] .volume-group-number`
-                );
-                vgElements.forEach(el => {
-                    el.textContent = '?';
-                    el.style.color = '#e74c3c';
-                    el.parentElement.title = `Error: ${response.status} ${response.statusText}`;
                 });
             }
         } catch (error) {
@@ -3151,9 +3139,9 @@ async function showEditLabelsModal(appName, namespace) {
             const app = await response.json();
             const labels = app.labels || {};
             
-            // Add existing labels (marked as readonly)
+            // Add existing labels
             Object.entries(labels).forEach(([key, value]) => {
-                addEditLabel(key, value, true);
+                addEditLabel(key, value);
             });
             
             // If no labels, show empty state
@@ -3177,24 +3165,19 @@ function closeEditLabelsModal() {
     document.getElementById('edit-labels-modal').style.display = 'none';
 }
 
-function addEditLabel(key = '', value = '', readonly = false) {
+function addEditLabel(key = '', value = '') {
     const container = document.getElementById('edit-labels-container');
     const labelId = `edit-label-${editLabelCounter++}`;
     
     const labelRow = document.createElement('div');
     labelRow.className = 'label-row';
     labelRow.id = labelId;
-    
-    // Add readonly badge for existing labels
-    const readonlyBadge = readonly ? '<span style="display: inline-block; background-color: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; margin-left: 8px;">Existing</span>' : '';
-    
     labelRow.innerHTML = `
-        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${escapeHtml(key)}" ${readonly ? 'readonly' : ''}>
+        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${escapeHtml(key)}">
         <input type="text" class="form-control label-value" placeholder="Label value (e.g., production)" value="${escapeHtml(value)}">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEditLabel('${labelId}')" ${readonly ? 'disabled title="Cannot remove existing labels. Use kubectl command instead."' : ''}>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEditLabel('${labelId}')">
             ➖ Remove
         </button>
-        ${readonlyBadge}
     `;
     
     container.appendChild(labelRow);
@@ -3222,15 +3205,13 @@ function collectEditLabels() {
         
         if (key) {
             // Validate label key format (Kubernetes naming rules)
-            // Supports both simple keys and prefixed keys (e.g., app.kubernetes.io/name)
-            const keyPattern = /^([a-z0-9]([-a-z0-9.]*[a-z0-9])?\/)?[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i;
-            if (!keyPattern.test(key)) {
-                throw new Error(`Invalid label key: "${key}". Must follow Kubernetes label naming rules.`);
+            if (!/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/.test(key)) {
+                throw new Error(`Invalid label key: "${key}". Must be lowercase alphanumeric, dashes, underscores, or dots.`);
             }
             
             // Validate label value format (can be empty)
-            if (value && !/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i.test(value)) {
-                throw new Error(`Invalid label value: "${value}". Must be alphanumeric with dashes, underscores, or dots.`);
+            if (value && !/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/.test(value)) {
+                throw new Error(`Invalid label value: "${value}". Must be lowercase alphanumeric, dashes, underscores, or dots.`);
             }
             
             labels[key] = value;

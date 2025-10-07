@@ -17,8 +17,8 @@
                 <button id="refreshBtn" class="btn btn-secondary">
                     <span id="refreshIcon">🔄</span> Refresh
                 </button>
-                <a href="{{ url_for('main.admin') }}" class="btn btn-secondary">⚙️ Admin</a>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary">Logout</a>
+                <a href="{{ url_for('admin') }}" class="btn btn-secondary">⚙️ Admin</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
             </div>
         </div>
     </nav>
@@ -623,9 +623,6 @@
                     </h4>
                     
                     <div class="form-group">
-                        <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 12px; background-color: #e7f3ff; border-left: 3px solid #2196F3; font-size: 0.9em;">
-                            <strong>Note:</strong> Removing labels is not supported through this interface. You can only add new labels or update existing ones. To remove labels, use <code>kubectl label application &lt;app_name&gt; -n &lt;namespace&gt; &lt;label_key&gt;-</code> command.
-                        </div>
                         <div id="edit-labels-container">
                             <!-- Labels will be added here dynamically -->
                         </div>

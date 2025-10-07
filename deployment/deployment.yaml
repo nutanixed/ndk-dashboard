@@ -29,7 +29,7 @@ spec:
               echo "Installing dependencies..."
               pip install --no-cache-dir -r requirements.txt
               echo "Starting Flask application..."
-              python run.py
+              python app.py
           ports:
             - name: http
               containerPort: 5000
