@@ -88,6 +88,18 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     min-height: 100vh;
+    padding: 1rem;
+}
+
+/* Page Container - wraps everything with rounded corners */
+.page-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
 }
 
 /* Navbar */
@@ -95,7 +107,6 @@ body {
     background: var(--gradient-brand);
     color: var(--text-inverse);
     padding: 2rem;
-    box-shadow: var(--shadow-lg);
     position: relative;
     overflow: hidden;
 }
@@ -124,19 +135,17 @@ body {
     gap: 0.5rem;
     text-align: center;
     width: 100%;
-    margin-bottom: 1rem;
 }
 
 .nutanix-logo {
-    height: 60px;
+    height: 120px;
     width: auto;
     max-width: 400px;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 2px 4px rgba(79, 70, 229, 0.2));
 }
 
 .nav-content h1 {
-    font-size: 2rem;
+    font-size: 2.5rem;
     font-weight: 700;
     margin: 0.25rem 0;
     letter-spacing: -0.025em;
@@ -145,18 +154,20 @@ body {
 }
 
 .nav-subtitle {
-    font-size: 1rem;
-    opacity: 0.9;
+    font-size: 1.125rem;
     font-weight: 400;
+    opacity: 0.9;
+    margin: 0.25rem 0 0.75rem 0;
     text-align: center;
     width: 100%;
 }
 
 .nav-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     align-items: center;
     justify-content: center;
+    margin-top: 0.5rem;
 }
 
 /* Container */
@@ -611,15 +622,28 @@ input[type="checkbox"]:focus {
 
 /* Secondary button in navbar (transparent style) */
 .navbar .btn-secondary {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
     color: var(--text-inverse);
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.2);
     height: auto;
     line-height: 1.5;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 50px;
+    backdrop-filter: blur(10px);
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 90px;
 }
 
 .navbar .btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide emojis in navbar buttons */
+.navbar .btn-secondary #refreshIcon {
+    display: none;
 }
 
 .btn-danger {
@@ -798,6 +822,73 @@ input[type="checkbox"] {
     font-size: 0.9375rem;
     color: var(--text-primary);
     cursor: pointer;
+}
+
+/* Service DNS Tooltip */
+.service-dns-wrapper {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.service-dns-wrapper:hover {
+    background-color: var(--hover-overlay);
+}
+
+.service-dns-short {
+    font-variant-numeric: tabular-nums;
+}
+
+.service-dns-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    background: var(--neutral-900);
+    color: var(--white);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: var(--shadow-xl);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+}
+
+.service-dns-wrapper:hover .service-dns-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-4px);
+}
+
+.service-dns-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--neutral-900);
+}
+
+.service-dns-tooltip-label {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--neutral-400);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.service-dns-tooltip-value {
+    display: block;
+    color: var(--brand-accent);
+    font-weight: 600;
 }
 
 /* Bulk Actions (Applications) */
@@ -1129,7 +1220,7 @@ input[type="checkbox"] {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--primary), #0ea5e9);
+    background: linear-gradient(90deg, var(--brand-primary), #0ea5e9);
     border-radius: 12px;
     transition: width 0.5s ease;
     position: relative;
