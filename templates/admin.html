@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - NDK Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ cache_bust }}">
     <style>
         .admin-warning {
@@ -260,6 +261,7 @@
     </style>
 </head>
 <body>
+    <div class="page-container">
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-brand">
@@ -670,5 +672,6 @@
         `;
         document.head.appendChild(style);
     </script>
+    </div>
 </body>
 </html>

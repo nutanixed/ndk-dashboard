@@ -186,39 +186,10 @@ class SnapshotService:
             body=restore_manifest
         )
         
-        # Wait for the restore to complete (poll for up to 5 minutes)
-        max_wait = 300  # 5 minutes
-        poll_interval = 5  # 5 seconds
-        elapsed = 0
+        print(f"✓ Restore operation {restore_name} initiated (non-blocking)")
         
-        print(f"Waiting for restore operation {restore_name} to complete...")
-        while elapsed < max_wait:
-            time.sleep(poll_interval)
-            elapsed += poll_interval
-            
-            try:
-                restore_status = k8s_api.get_namespaced_custom_object(
-                    group=Config.NDK_API_GROUP,
-                    version=Config.NDK_API_VERSION,
-                    namespace=restore_namespace,
-                    plural='applicationsnapshotrestores',
-                    name=restore_name
-                )
-                
-                status = restore_status.get('status', {})
-                completed = status.get('completed', False)
-                
-                if completed:
-                    print(f"✓ Restore operation completed after {elapsed}s")
-                    break
-                    
-                print(f"  Restore in progress... ({elapsed}s elapsed)")
-            except Exception as e:
-                print(f"  Error checking restore status: {e}")
-                break
-        
-        # After restore completes, create an Application CRD to manage the restored resources
-        # This allows NDK to discover and manage the restored application
+        # Create an Application CRD immediately to manage the restored resources
+        # The frontend will poll the restore progress API to track completion
         app_manifest = {
             'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
             'kind': 'Application',
@@ -231,6 +202,10 @@ class SnapshotService:
                 }
             },
             'spec': {
+                'restoreFrom': {
+                    'snapshot': name,
+                    'restoreName': restore_name
+                },
                 'applicationSelector': {
                     'resourceLabelSelectors': [
                         {

@@ -15,8 +15,8 @@ class Config:
     FLASK_ENV = os.getenv('FLASK_ENV', 'development')
     
     # Dashboard authentication
-    DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME', 'admin')
-    DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'admin')
+    DASHBOARD_USERNAME = os.getenv('DASHBOARD_USERNAME', 'nutanix')
+    DASHBOARD_PASSWORD = os.getenv('DASHBOARD_PASSWORD', 'Nutanix/4u!')
     
     # Session configuration
     SESSION_TIMEOUT_HOURS = int(os.getenv('SESSION_TIMEOUT_HOURS', '24'))

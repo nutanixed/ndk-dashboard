@@ -35,15 +35,15 @@ echo "✓ Connected to Kubernetes cluster"
 echo ""
 
 # Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
-    python3 -m venv venv
+    python3 -m venv .venv
     echo "✓ Virtual environment created"
 fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source venv/bin/activate
+source .venv/bin/activate
 
 # Install dependencies
 echo "Installing dependencies..."

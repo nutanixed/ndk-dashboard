@@ -2486,14 +2486,16 @@ function updateLabelPreview() {
     
     if (labelKeySelect.value === '__custom__') {
         labelKey = labelKeyCustom.value.trim();
-    } else {
-        labelKey = labelKeySelect.value.trim();
-    }
-    
-    if (labelValueSelect.value === '__custom__') {
+        // When custom key is used, always get value from custom input
         labelValue = labelValueCustom.value.trim();
     } else {
-        labelValue = labelValueSelect.value.trim();
+        labelKey = labelKeySelect.value.trim();
+        // When predefined key is used, check if custom value is selected
+        if (labelValueSelect.value === '__custom__') {
+            labelValue = labelValueCustom.value.trim();
+        } else {
+            labelValue = labelValueSelect.value.trim();
+        }
     }
     
     if (labelKey && labelValue) {
@@ -2603,14 +2605,16 @@ async function savePlan() {
         
         if (labelKeySelect.value === '__custom__') {
             labelKey = labelKeyCustom.value.trim();
-        } else {
-            labelKey = labelKeySelect.value.trim();
-        }
-        
-        if (labelValueSelect.value === '__custom__') {
+            // When custom key is used, always get value from custom input
             labelValue = labelValueCustom.value.trim();
         } else {
-            labelValue = labelValueSelect.value.trim();
+            labelKey = labelKeySelect.value.trim();
+            // When predefined key is used, check if custom value is selected
+            if (labelValueSelect.value === '__custom__') {
+                labelValue = labelValueCustom.value.trim();
+            } else {
+                labelValue = labelValueSelect.value.trim();
+            }
         }
         
         if (!labelKey || !labelValue) {

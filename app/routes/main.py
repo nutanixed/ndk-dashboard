@@ -30,6 +30,7 @@ def health():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
+        'version': '3.0.0',
         'kubernetes': k8s_api is not None,
         'timestamp': datetime.now().isoformat()
     })
