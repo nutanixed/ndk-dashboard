@@ -596,6 +596,8 @@ input[type="checkbox"]:focus {
     background: rgba(255, 255, 255, 0.2);
     color: var(--text-inverse);
     border-color: rgba(255, 255, 255, 0.3);
+    height: auto;
+    line-height: 1.5;
 }
 
 .navbar .btn-secondary:hover:not(:disabled) {
