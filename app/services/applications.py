@@ -547,6 +547,7 @@ class ApplicationService:
             pod_name = pod.metadata.name
             node_name = pod.spec.node_name or 'Pending'
             phase = pod.status.phase
+            pod_ip = pod.status.pod_ip or 'N/A'
             
             # Get container statuses
             ready_containers = 0
@@ -558,7 +559,8 @@ class ApplicationService:
                 'name': pod_name,
                 'node': node_name,
                 'phase': phase,
-                'ready': f"{ready_containers}/{total_containers}"
+                'ready': f"{ready_containers}/{total_containers}",
+                'ip': pod_ip
             })
         
         return {

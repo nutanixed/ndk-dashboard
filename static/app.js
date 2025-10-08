@@ -450,14 +450,15 @@ function renderApplications(data, container) {
                 <thead>
                     <tr>
                         <th style="width: 3%;"><input type="checkbox" id="select-all-apps" onchange="toggleSelectAll(this)"></th>
-                        <th style="width: 16%;">Name</th>
-                        <th style="width: 10%;">Namespace</th>
-                        <th style="width: 8%;">Status</th>
-                        <th style="width: 6%;">Replicas</th>
-                        <th style="width: 7%;">Volume Groups</th>
-                        <th style="width: 14%;">Labels</th>
-                        <th style="width: 10%;">Last Snapshot</th>
-                        <th style="width: 10%;">Created</th>
+                        <th style="width: 14%;">Name</th>
+                        <th style="width: 9%;">Namespace</th>
+                        <th style="width: 7%;">Status</th>
+                        <th style="width: 5%;">Replicas</th>
+                        <th style="width: 6%;">Volume Groups</th>
+                        <th style="width: 10%;">Service DNS</th>
+                        <th style="width: 12%;">Labels</th>
+                        <th style="width: 9%;">Last Snapshot</th>
+                        <th style="width: 9%;">Created</th>
                         <th style="width: 16%;">Actions</th>
                     </tr>
                 </thead>
@@ -477,6 +478,10 @@ function renderApplications(data, container) {
                                 .join(' ')
                             : '<span class="text-muted">No labels</span>';
                         
+                        // Generate Service DNS
+                        const serviceDnsShort = `${escapeHtml(appName)}.${escapeHtml(appNamespace)}`;
+                        const serviceDnsFull = `${escapeHtml(appName)}.${escapeHtml(appNamespace)}.svc.cluster.local`;
+
                         const appId = `${appName}:${appNamespace}`;
                         const isChecked = selectedApplications.has(appId) ? 'checked' : '';
                         return `
@@ -503,6 +508,16 @@ function renderApplications(data, container) {
                                       onmouseleave="scheduleHideVolumeGroupTooltip()"
                                       style="cursor: pointer; position: relative;">
                                     <span class="volume-group-number">...</span>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="service-dns-wrapper" 
+                                      data-app-name="${escapeHtml(appName)}" 
+                                      data-app-namespace="${escapeHtml(appNamespace)}"
+                                      onmouseenter="showServiceDnsTooltip(this, '${escapeHtml(serviceDnsFull)}')"
+                                      onmouseleave="scheduleHideServiceDnsTooltip()"
+                                      style="cursor: pointer; position: relative;">
+                                    <span class="service-dns-short">${serviceDnsShort}</span>
                                 </span>
                             </td>
                             <td>${labelsHtml}</td>
@@ -656,6 +671,12 @@ function showReplicaTooltip(element, appName, appNamespace) {
             
             tooltipContent += `<div class="tooltip-item">
                 <span class="tooltip-status" style="visibility: hidden;"></span>
+                <span class="tooltip-item-label">IP:</span>
+                <span class="tooltip-item-value">${escapeHtml(pod.ip || 'N/A')}</span>
+            </div>`;
+            
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="visibility: hidden;"></span>
                 <span class="tooltip-item-label">Node:</span>
                 <span class="tooltip-item-value">${escapeHtml(pod.node)}</span>
             </div>`;
@@ -672,17 +693,16 @@ function showReplicaTooltip(element, appName, appNamespace) {
         // Position tooltip
         document.body.appendChild(tooltip);
         const rect = element.getBoundingClientRect();
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = `${rect.left}px`;
-        tooltip.style.top = `${rect.bottom + 5}px`;
-        
-        // Adjust if tooltip goes off screen
         const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        
+        // Always show tooltip above the element
+        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        tooltip.style.left = `${rect.left}px`;
+        
+        // Adjust if tooltip goes off screen horizontally
         if (tooltipRect.right > window.innerWidth) {
             tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
-        }
-        if (tooltipRect.bottom > window.innerHeight) {
-            tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
         }
     }, 500); // 500ms delay for text selection
 }
@@ -886,17 +906,16 @@ function showVolumeGroupTooltip(element, appName, appNamespace) {
         // Position tooltip
         document.body.appendChild(tooltip);
         const rect = element.getBoundingClientRect();
-        tooltip.style.position = 'fixed';
-        tooltip.style.left = `${rect.left}px`;
-        tooltip.style.top = `${rect.bottom + 5}px`;
-        
-        // Adjust if tooltip goes off screen
         const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        
+        // Always show tooltip above the element
+        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        tooltip.style.left = `${rect.left}px`;
+        
+        // Adjust if tooltip goes off screen horizontally
         if (tooltipRect.right > window.innerWidth) {
             tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
-        }
-        if (tooltipRect.bottom > window.innerHeight) {
-            tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
         }
     }, 500); // 500ms delay for text selection
 }
@@ -928,6 +947,106 @@ function hideVolumeGroupTooltip() {
     }
     
     const tooltip = document.getElementById('volume-group-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
+// Service DNS tooltip management
+let serviceDnsTooltipTimeout = null;
+let hideServiceDnsTooltipTimeout = null;
+
+function showServiceDnsTooltip(element, fullDns) {
+    // Clear any existing hide timeout
+    if (hideServiceDnsTooltipTimeout) {
+        clearTimeout(hideServiceDnsTooltipTimeout);
+        hideServiceDnsTooltipTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (serviceDnsTooltipTimeout) {
+        clearTimeout(serviceDnsTooltipTimeout);
+    }
+    
+    // Add a small delay before showing tooltip
+    serviceDnsTooltipTimeout = setTimeout(() => {
+        // Remove any existing tooltip
+        const existingTooltip = document.getElementById('service-dns-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'service-dns-tooltip';
+        tooltip.className = 'info-tooltip';
+        
+        // Add hover handlers to keep tooltip visible
+        tooltip.addEventListener('mouseenter', () => {
+            if (hideServiceDnsTooltipTimeout) {
+                clearTimeout(hideServiceDnsTooltipTimeout);
+                hideServiceDnsTooltipTimeout = null;
+            }
+        });
+        tooltip.addEventListener('mouseleave', () => {
+            scheduleHideServiceDnsTooltip();
+        });
+        
+        // Build tooltip content
+        let tooltipContent = '<div class="tooltip-header">Service DNS</div>';
+        tooltipContent += '<div class="tooltip-body">';
+        tooltipContent += `<div class="tooltip-item">
+            <span class="tooltip-item-label">Full DNS:</span>
+            <span class="tooltip-item-value">${escapeHtml(fullDns)}</span>
+        </div>`;
+        tooltipContent += '</div>';
+        
+        tooltip.innerHTML = tooltipContent;
+        
+        // Position tooltip
+        document.body.appendChild(tooltip);
+        const rect = element.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        
+        // Always show tooltip above the element
+        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        tooltip.style.left = `${rect.left}px`;
+        
+        // Adjust if tooltip goes off screen horizontally
+        if (tooltipRect.right > window.innerWidth) {
+            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        }
+    }, 500); // 500ms delay for text selection
+}
+
+function scheduleHideServiceDnsTooltip() {
+    // Clear any existing show timeout
+    if (serviceDnsTooltipTimeout) {
+        clearTimeout(serviceDnsTooltipTimeout);
+        serviceDnsTooltipTimeout = null;
+    }
+    
+    // Schedule hiding the tooltip after a short delay
+    hideServiceDnsTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('service-dns-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200); // 200ms delay before hiding
+}
+
+function hideServiceDnsTooltip() {
+    if (serviceDnsTooltipTimeout) {
+        clearTimeout(serviceDnsTooltipTimeout);
+        serviceDnsTooltipTimeout = null;
+    }
+    if (hideServiceDnsTooltipTimeout) {
+        clearTimeout(hideServiceDnsTooltipTimeout);
+        hideServiceDnsTooltipTimeout = null;
+    }
+    
+    const tooltip = document.getElementById('service-dns-tooltip');
     if (tooltip) {
         tooltip.remove();
     }
