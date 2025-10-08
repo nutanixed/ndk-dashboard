@@ -27,8 +27,11 @@ def manage_protectionplans():
             retention = data.get('retention')
             applications = data.get('applications', [])
             selection_mode = data.get('selectionMode', 'by-name')
-            label_selector_key = data.get('labelSelectorKey')
-            label_selector_value = data.get('labelSelectorValue')
+            
+            # Handle label selector - can be nested object or separate fields
+            label_selector = data.get('labelSelector', {})
+            label_selector_key = label_selector.get('key') if label_selector else data.get('labelSelectorKey')
+            label_selector_value = label_selector.get('value') if label_selector else data.get('labelSelectorValue')
             
             if not all([name, namespace, schedule, retention]):
                 return jsonify({'error': 'Missing required fields'}), 400
@@ -168,6 +171,10 @@ def trigger_protection_plan(namespace, name):
         retention_policy = spec.get('retentionPolicy', {})
         metadata = plan.get('metadata', {})
         annotations = metadata.get('annotations', {})
+        
+        import sys
+        print(f"DEBUG: Plan metadata: {metadata}", file=sys.stderr, flush=True)
+        print(f"DEBUG: Annotations: {annotations}", file=sys.stderr, flush=True)
         
         # Convert retention to expiresAfter format
         # If retentionCount is specified, use default 30 days

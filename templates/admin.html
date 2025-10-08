@@ -87,42 +87,69 @@
         .resource-table tr:hover {
             background: #f9f9f9;
         }
+        .resource-table td:last-child {
+            white-space: nowrap;
+            min-width: 280px;
+        }
         .action-btn {
             padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
+            border: 1px solid transparent;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            margin-right: 5px;
-            transition: all 0.3s;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 6px;
+            margin-bottom: 4px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .action-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
         .btn-edit {
             background: #2196f3;
             color: white;
+            border-color: #2196f3;
         }
         .btn-edit:hover {
             background: #1976d2;
+            border-color: #1976d2;
         }
         .btn-delete {
-            background: #f44336;
+            background: #dc2626;
             color: white;
+            border-color: #dc2626;
         }
         .btn-delete:hover {
-            background: #d32f2f;
+            background: #b91c1c;
+            border-color: #b91c1c;
         }
         .btn-force-delete {
-            background: #ff9800;
+            background: #f59e0b;
             color: white;
+            border-color: #f59e0b;
         }
         .btn-force-delete:hover {
-            background: #f57c00;
+            background: #d97706;
+            border-color: #d97706;
         }
         .btn-delete-app-only {
-            background: #9c27b0;
+            background: #0ea5e9;
             color: white;
+            border-color: #0ea5e9;
         }
         .btn-delete-app-only:hover {
-            background: #7b1fa2;
+            background: #0284c7;
+            border-color: #0284c7;
         }
         .modal {
             display: none;
@@ -299,6 +326,32 @@
         </div>
     </div>
 
+    <!-- Delete Progress Modal -->
+    <div id="deleteProgressModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🗑️ Deleting Application</h2>
+            </div>
+            <div style="padding: 20px 0;">
+                <div style="margin-bottom: 15px;">
+                    <strong>Application:</strong> <span id="delete-progress-app-name"></span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <strong>Namespace:</strong> <span id="delete-progress-namespace"></span>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <strong>Status:</strong> <span id="delete-progress-status"></span>
+                </div>
+                <div id="delete-progress-message" style="padding: 15px; background: #f5f5f5; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">
+                    Initiating deletion...
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" id="delete-progress-close-btn" onclick="closeDeleteProgressModal()" style="display: none;">Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentDeleteResource = null;
         let allApplications = [];
@@ -362,10 +415,10 @@
                             <td>${new Date(app.created).toLocaleString()}</td>
                             <td>
                                 <button class="action-btn btn-delete-app-only" onclick="deleteApplicationOnly('${app.namespace}', '${app.name}')" title="Prepare for restore: deletes workloads & PVCs, keeps snapshots">
-                                    🔄 Prepare for Restore
+                                    🔄 Prep Restore
                                 </button>
                                 <button class="action-btn btn-delete" onclick="deleteApplication('${app.namespace}', '${app.name}')" title="Complete cleanup (deletes everything)">
-                                    🗑️ Full Delete
+                                    🗑️ Delete All
                                 </button>
                             </td>
                         </tr>
@@ -429,26 +482,26 @@
                 <p>Prepare application for restore:</p>
                 <p style="font-weight: 600;">${name}</p>
                 <p style="color: #666;">Namespace: ${namespace}</p>
-                <div style="background: #e1bee7; border: 1px solid #9c27b0; border-radius: 4px; padding: 10px; margin: 15px 0;">
-                    <p style="margin: 0; color: #4a148c; font-size: 14px;">
+                <div style="background: #e0f2fe; border: 1px solid #0ea5e9; border-radius: 4px; padding: 10px; margin: 15px 0;">
+                    <p style="margin: 0; color: #075985; font-size: 14px;">
                         <strong>🔄 Prepare for Restore:</strong><br>
                         This will delete workloads and PVCs to prepare for restore:
                     </p>
-                    <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
+                    <ul style="margin: 5px 0 0 20px; color: #075985; font-size: 13px;">
                         <li>❌ Application CRD</li>
                         <li>❌ StatefulSet/Deployment</li>
-                        <li>❌ Services & Secrets</li>
+                        <li>❌ Services</li>
                         <li>❌ PVCs & PVs (data will be restored from snapshot)</li>
                     </ul>
-                    <p style="margin: 10px 0 0 0; color: #4a148c; font-size: 14px;">
+                    <p style="margin: 10px 0 0 0; color: #075985; font-size: 14px;">
                         <strong>But will preserve:</strong>
                     </p>
-                    <ul style="margin: 5px 0 0 20px; color: #4a148c; font-size: 13px;">
+                    <ul style="margin: 5px 0 0 20px; color: #075985; font-size: 13px;">
                         <li>✓ All snapshots (required for restore)</li>
                         <li>✓ Protection plans</li>
                     </ul>
                 </div>
-                <p style="color: #9c27b0; font-weight: 500;">After this, you can restore from a snapshot!</p>
+                <p style="color: #0ea5e9; font-weight: 500;">After this, you can restore from a snapshot!</p>
             `;
             
             // Hide force delete button for app-only delete
@@ -495,12 +548,18 @@
             
             const { type, namespace, name } = currentDeleteResource;
             
+            // Close confirmation modal and show progress modal
+            closeDeleteModal();
+            showDeleteProgressModal(namespace, name, type);
+            
             // For app-only delete, use the new endpoint
             const endpoint = type === 'application-only' 
                 ? `/api/applications/${namespace}/${name}?app_only=true`
                 : `/api/applications/${namespace}/${name}`;
             
             try {
+                updateDeleteProgress('⏳ In Progress', 'Sending delete request...');
+                
                 const response = await fetch(endpoint, { method: 'DELETE' });
                 const data = await response.json();
                 
@@ -514,14 +573,20 @@
                         message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
                     }
                     
-                    alert(message);
-                    closeDeleteModal();
-                    loadApplications();
+                    updateDeleteProgress('✅ Complete', message);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadApplications();
+                    }, 2000);
                 } else {
-                    alert(`Error: ${data.error}`);
+                    updateDeleteProgress('❌ Failed', `Error: ${data.error}`);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
                 }
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                updateDeleteProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
             }
         }
 
@@ -530,9 +595,16 @@
             if (!currentDeleteResource) return;
             
             const { type, namespace, name } = currentDeleteResource;
+            
+            // Close confirmation modal and show progress modal
+            closeDeleteModal();
+            showDeleteProgressModal(namespace, name, 'force-delete');
+            
             const endpoint = `/api/applications/${namespace}/${name}?force=true`;
             
             try {
+                updateDeleteProgress('⏳ In Progress', 'Sending force delete request...');
+                
                 const response = await fetch(endpoint, { method: 'DELETE' });
                 const data = await response.json();
                 
@@ -544,20 +616,45 @@
                         message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
                     }
                     
-                    alert(message);
-                    closeDeleteModal();
-                    loadApplications();
+                    updateDeleteProgress('✅ Complete', message);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadApplications();
+                    }, 2000);
                 } else {
-                    alert(`Error: ${data.error}`);
+                    updateDeleteProgress('❌ Failed', `Error: ${data.error}`);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
                 }
             } catch (error) {
-                alert(`Error: ${error.message}`);
+                updateDeleteProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
             }
         }
 
         function closeDeleteModal() {
             document.getElementById('deleteModal').classList.remove('active');
             currentDeleteResource = null;
+        }
+
+        // Delete progress modal functions
+        function showDeleteProgressModal(namespace, name, type) {
+            document.getElementById('delete-progress-app-name').textContent = name;
+            document.getElementById('delete-progress-namespace').textContent = namespace;
+            document.getElementById('delete-progress-status').textContent = '⏳ Starting...';
+            document.getElementById('delete-progress-message').textContent = 'Initiating deletion...';
+            document.getElementById('delete-progress-close-btn').style.display = 'none';
+            document.getElementById('deleteProgressModal').classList.add('active');
+        }
+
+        function updateDeleteProgress(status, message) {
+            document.getElementById('delete-progress-status').textContent = status;
+            document.getElementById('delete-progress-message').textContent = message;
+        }
+
+        function closeDeleteProgressModal() {
+            document.getElementById('deleteProgressModal').classList.remove('active');
         }
 
         // Initial load

@@ -59,8 +59,15 @@ def update_labels(namespace, name):
     try:
         data = request.get_json()
         new_labels = data.get('labels', {})
+        labels_to_remove = data.get('labels_to_remove', [])
         
-        updated_labels = ApplicationService.update_labels(namespace, name, new_labels)
+        print(f"[DEBUG] Received labels update request:")
+        print(f"[DEBUG] - new_labels: {new_labels}")
+        print(f"[DEBUG] - labels_to_remove: {labels_to_remove}")
+        
+        updated_labels = ApplicationService.update_labels(
+            namespace, name, new_labels, labels_to_remove
+        )
         
         # Clear cache to force refresh
         invalidate_cache('applications')
@@ -105,4 +112,16 @@ def get_pvcs(namespace, name):
         return jsonify(pvcs_info)
     except Exception as e:
         print(f"Error fetching PVCs for {namespace}/{name}: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@applications_bp.route('/applications/<namespace>/<name>/restore-progress', methods=['GET'])
+@login_required
+def get_restore_progress(namespace, name):
+    """Get restore progress for an application"""
+    try:
+        progress_info = ApplicationService.get_restore_progress(namespace, name)
+        return jsonify(progress_info)
+    except Exception as e:
+        print(f"Error fetching restore progress for {namespace}/{name}: {e}")
         return jsonify({'error': str(e)}), 500

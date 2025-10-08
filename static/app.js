@@ -1627,6 +1627,12 @@ async function restoreSnapshot() {
         return;
     }
     
+    // Validate application name
+    if (!appName || appName === 'Unknown') {
+        showToast('✗ Cannot restore: Application name is missing or unknown in snapshot', 'error');
+        return;
+    }
+    
     // Validation: Check if application exists - NDK requires it to be deleted first
     try {
             const checkResponse = await fetch(`/api/applications/${targetNamespace}/${appName}`);
@@ -1677,20 +1683,103 @@ async function restoreSnapshot() {
         
         const result = await response.json();
         console.log('Restore initiated:', result);
-        showToast(`✓ Restore initiated: ${result.restore.name}`, 'success');
         
-        // Reload applications only (don't reload stats to avoid showing "Unknown" for other resources)
-        await loadApplications();
+        // Extract the restored application name from the response
+        const restoredAppName = result?.application?.name || appName;
+        const displayName = restoredAppName || result?.message || 'restore operation';
+        showToast(`✓ Restore initiated: ${displayName}`, 'success');
         
-        // Update application count in stats without full reload
-        const statElement = document.getElementById('stat-applications');
-        if (statElement) {
-            const currentCount = parseInt(statElement.textContent) || 0;
-            statElement.textContent = currentCount + 1;
-        }
+        // Show progress modal and start tracking with the RESTORED app name
+        showRestoreProgressModal(targetNamespace, restoredAppName, snapshotName);
     } catch (error) {
         console.error('Error restoring snapshot:', error);
-        showToast('✗ Error restoring snapshot', 'error');
+        const errorMessage = error.message || 'Unknown error';
+        showToast(`✗ Error restoring snapshot: ${errorMessage}`, 'error');
+    }
+}
+
+// Restore Progress Tracking
+let restoreProgressInterval = null;
+
+function showRestoreProgressModal(namespace, appName, snapshotName) {
+    const modal = document.getElementById('restore-progress-modal');
+    document.getElementById('restore-progress-app-name').textContent = appName;
+    document.getElementById('restore-progress-snapshot-name').textContent = snapshotName;
+    document.getElementById('restore-progress-percentage').textContent = '0%';
+    document.getElementById('restore-progress-stage').textContent = 'Initializing...';
+    document.getElementById('restore-progress-message').textContent = 'Starting restore operation';
+    
+    const progressFill = document.querySelector('#restore-progress-modal .progress-fill');
+    progressFill.style.width = '0%';
+    
+    modal.style.display = 'flex';
+    
+    // Start tracking progress
+    startRestoreProgressTracking(namespace, appName);
+}
+
+function closeRestoreProgressModal() {
+    const modal = document.getElementById('restore-progress-modal');
+    modal.style.display = 'none';
+    
+    // Stop polling
+    if (restoreProgressInterval) {
+        clearInterval(restoreProgressInterval);
+        restoreProgressInterval = null;
+    }
+}
+
+function startRestoreProgressTracking(namespace, appName) {
+    // Clear any existing interval
+    if (restoreProgressInterval) {
+        clearInterval(restoreProgressInterval);
+    }
+    
+    // Poll every 2 seconds
+    restoreProgressInterval = setInterval(() => {
+        updateRestoreProgress(namespace, appName);
+    }, 2000);
+    
+    // Initial update
+    updateRestoreProgress(namespace, appName);
+}
+
+async function updateRestoreProgress(namespace, appName) {
+    try {
+        const response = await fetch(`/api/applications/${namespace}/${appName}/restore-progress`);
+        
+        if (!response.ok) {
+            console.error('Failed to fetch restore progress');
+            return;
+        }
+        
+        const data = await response.json();
+        
+        // Update UI
+        document.getElementById('restore-progress-percentage').textContent = `${data.progress}%`;
+        document.getElementById('restore-progress-stage').textContent = data.stage;
+        document.getElementById('restore-progress-message').textContent = data.message || '';
+        
+        const progressFill = document.querySelector('#restore-progress-modal .progress-fill');
+        progressFill.style.width = `${data.progress}%`;
+        
+        // Check if complete
+        if (data.progress >= 100 || data.state === 'Ready') {
+            // Stop polling
+            if (restoreProgressInterval) {
+                clearInterval(restoreProgressInterval);
+                restoreProgressInterval = null;
+            }
+            
+            // Auto-close after 2 seconds and refresh
+            setTimeout(async () => {
+                closeRestoreProgressModal();
+                await loadApplications();
+                showToast('✓ Restore completed successfully', 'success');
+            }, 2000);
+        }
+    } catch (error) {
+        console.error('Error updating restore progress:', error);
     }
 }
 
@@ -3131,6 +3220,7 @@ function closeDeployModal() {
 // === EDIT LABELS FUNCTIONS ===
 let editLabelCounter = 0;
 let currentEditApp = { name: '', namespace: '' };
+let originalLabels = {};
 
 async function showEditLabelsModal(appName, namespace) {
     currentEditApp = { name: appName, namespace: namespace };
@@ -3143,6 +3233,7 @@ async function showEditLabelsModal(appName, namespace) {
     const container = document.getElementById('edit-labels-container');
     container.innerHTML = '';
     editLabelCounter = 0;
+    originalLabels = {};
     
     // Fetch current labels from the application
     try {
@@ -3150,23 +3241,22 @@ async function showEditLabelsModal(appName, namespace) {
         if (response.ok) {
             const app = await response.json();
             const labels = app.labels || {};
+            originalLabels = { ...labels };
             
-            // Add existing labels (marked as readonly)
-            Object.entries(labels).forEach(([key, value]) => {
-                addEditLabel(key, value, true);
-            });
-            
-            // If no labels, show empty state
             if (Object.keys(labels).length === 0) {
-                addEditLabel('', '');
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary); font-style: italic;">No labels yet. Click "Add New Label" to get started.</div>';
+            } else {
+                Object.entries(labels).forEach(([key, value]) => {
+                    addEditLabel(key, value, true);
+                });
             }
         } else {
             console.error('Failed to fetch application labels');
-            addEditLabel('', '');
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);">Failed to load labels</div>';
         }
     } catch (error) {
         console.error('Error fetching application labels:', error);
-        addEditLabel('', '');
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--error);">Error loading labels</div>';
     }
     
     // Show modal
@@ -3177,24 +3267,51 @@ function closeEditLabelsModal() {
     document.getElementById('edit-labels-modal').style.display = 'none';
 }
 
+function isSystemLabel(key) {
+    const systemPrefixes = ['app.kubernetes.io/', 'kubernetes.io/', 'k8s.io/', 'helm.sh/'];
+    return systemPrefixes.some(prefix => key.startsWith(prefix));
+}
+
 function addEditLabel(key = '', value = '', readonly = false) {
     const container = document.getElementById('edit-labels-container');
-    const labelId = `edit-label-${editLabelCounter++}`;
     
+    if (container.querySelector('div[style*="text-align: center"]')) {
+        container.innerHTML = '';
+    }
+    
+    const labelId = `edit-label-${editLabelCounter++}`;
     const labelRow = document.createElement('div');
     labelRow.className = 'label-row';
     labelRow.id = labelId;
     
-    // Add readonly badge for existing labels
-    const readonlyBadge = readonly ? '<span style="display: inline-block; background-color: #e3f2fd; color: #1976d2; padding: 4px 10px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; margin-left: 8px;">Existing</span>' : '';
+    let badge = '';
+    let keyReadonly = '';
+    let removeDisabled = '';
+    let removeTitle = '';
+    let removeStyle = '';
+    
+    if (readonly && key) {
+        const isSystem = isSystemLabel(key);
+        if (isSystem) {
+            badge = '<span style="display: inline-flex; align-items: center; background-color: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">🔒 System</span>';
+            keyReadonly = 'readonly';
+            removeDisabled = 'disabled';
+            removeTitle = 'title="System labels cannot be removed"';
+        } else {
+            badge = '<span style="display: inline-flex; align-items: center; background-color: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">Existing</span>';
+            removeStyle = 'style="background-color: #dc3545; color: white;"';
+        }
+    } else if (!readonly && key === '') {
+        badge = '<span style="display: inline-flex; align-items: center; background-color: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; white-space: nowrap;">New</span>';
+    }
     
     labelRow.innerHTML = `
-        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${escapeHtml(key)}" ${readonly ? 'readonly' : ''}>
+        ${badge}
+        <input type="text" class="form-control label-key" placeholder="Label key (e.g., environment)" value="${escapeHtml(key)}" ${keyReadonly}>
         <input type="text" class="form-control label-value" placeholder="Label value (e.g., production)" value="${escapeHtml(value)}">
-        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEditLabel('${labelId}')" ${readonly ? 'disabled title="Cannot remove existing labels. Use kubectl command instead."' : ''}>
-            ➖ Remove
+        <button type="button" class="btn btn-secondary btn-sm" onclick="removeEditLabel('${labelId}')" ${removeDisabled} ${removeTitle} ${removeStyle}>
+            Remove
         </button>
-        ${readonlyBadge}
     `;
     
     container.appendChild(labelRow);
@@ -3213,55 +3330,91 @@ function suggestEditLabel(key, value) {
 
 function collectEditLabels() {
     const labels = {};
+    const labelsToRemove = [];
     const container = document.getElementById('edit-labels-container');
     const labelRows = container.querySelectorAll('.label-row');
     
+    const currentLabels = {};
     labelRows.forEach(row => {
         const key = row.querySelector('.label-key').value.trim();
         const value = row.querySelector('.label-value').value.trim();
         
         if (key) {
-            // Validate label key format (Kubernetes naming rules)
-            // Supports both simple keys and prefixed keys (e.g., app.kubernetes.io/name)
             const keyPattern = /^([a-z0-9]([-a-z0-9.]*[a-z0-9])?\/)?[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i;
             if (!keyPattern.test(key)) {
                 throw new Error(`Invalid label key: "${key}". Must follow Kubernetes label naming rules.`);
             }
             
-            // Validate label value format (can be empty)
             if (value && !/^[a-z0-9]([-a-z0-9_.]*[a-z0-9])?$/i.test(value)) {
                 throw new Error(`Invalid label value: "${value}". Must be alphanumeric with dashes, underscores, or dots.`);
             }
             
+            currentLabels[key] = value;
             labels[key] = value;
         }
     });
     
-    return labels;
+    for (const key in originalLabels) {
+        if (!(key in currentLabels) && !isSystemLabel(key)) {
+            labelsToRemove.push(key);
+        }
+    }
+    
+    return { labels, labelsToRemove };
 }
 
 async function saveApplicationLabels() {
     try {
-        const labels = collectEditLabels();
+        const result = collectEditLabels();
+        const { labels, labelsToRemove } = result;
+        
+        // Calculate change summary
+        let addedCount = 0;
+        let updatedCount = 0;
+        for (const key in labels) {
+            if (key in originalLabels) {
+                if (originalLabels[key] !== labels[key]) {
+                    updatedCount++;
+                }
+            } else {
+                addedCount++;
+            }
+        }
+        const removedCount = labelsToRemove.length;
+        
+        // Check if there are any changes
+        if (addedCount === 0 && updatedCount === 0 && removedCount === 0) {
+            showToast('No changes detected', 'info');
+            return;
+        }
         
         const response = await fetch(`/api/applications/${currentEditApp.namespace}/${currentEditApp.name}/labels`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ labels: labels })
+            body: JSON.stringify({ 
+                labels: labels,
+                labels_to_remove: labelsToRemove
+            })
         });
         
         if (response.ok) {
-            showNotification('Labels updated successfully', 'success');
+            const changeSummary = [];
+            if (addedCount > 0) changeSummary.push(`${addedCount} added`);
+            if (updatedCount > 0) changeSummary.push(`${updatedCount} updated`);
+            if (removedCount > 0) changeSummary.push(`${removedCount} removed`);
+            
+            const message = `Labels updated successfully (${changeSummary.join(', ')})`;
+            showToast(message, 'success');
             closeEditLabelsModal();
-            loadData('applications'); // Refresh the applications table
+            loadApplications(); // Refresh the applications table
         } else {
             const error = await response.json();
-            showNotification(`Failed to update labels: ${error.error || 'Unknown error'}`, 'error');
+            showToast(`Failed to update labels: ${error.error || 'Unknown error'}`, 'error');
         }
     } catch (error) {
-        showNotification(`Error: ${error.message}`, 'error');
+        showToast(`Error: ${error.message}`, 'error');
     }
 }
 

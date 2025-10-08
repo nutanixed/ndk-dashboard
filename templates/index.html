@@ -245,6 +245,41 @@
         </div>
     </div>
 
+    <!-- Restore Progress Modal -->
+    <div id="restore-progress-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>↻ Restore in Progress</h3>
+                <button class="modal-close" onclick="closeRestoreProgressModal()" aria-label="Close">✕</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">Restoring application: <strong id="restore-progress-app-name"></strong></p>
+                <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 20px;">
+                    From snapshot: <strong id="restore-progress-snapshot-name"></strong>
+                </p>
+                
+                <!-- Progress Bar -->
+                <div class="progress-container" style="margin-bottom: 20px;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="restore-progress-fill" style="width: 0%"></div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="restore-progress-percentage">0%</span>
+                        <span id="restore-progress-stage">Initializing...</span>
+                    </div>
+                </div>
+                
+                <!-- Status Message -->
+                <div id="restore-status-message" style="font-size: 0.875rem; color: var(--text-secondary); padding: 12px; background: var(--bg-tertiary); border-radius: 6px; border-left: 3px solid var(--primary);">
+                    <strong>Status:</strong> <span id="restore-progress-message">Starting restore operation...</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeRestoreProgressModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Bulk Snapshot Modal -->
     <div id="bulk-snapshot-modal" class="modal">
         <div class="modal-content">
@@ -619,15 +654,12 @@
                 <div class="form-section">
                     <h4 class="form-section-title">
                         🏷️ Labels
-                        <span class="info-icon" title="Labels help organize applications and enable label-based Protection Plans. Use lowercase alphanumeric characters, dashes, underscores, or dots.">ℹ️</span>
+                        <span class="info-icon" title="Labels help organize applications and enable label-based Protection Plans. System labels (kubernetes.io/*, app.kubernetes.io/*, etc.) are protected and cannot be removed.">ℹ️</span>
                     </h4>
-                    
+                   
                     <div class="form-group">
-                        <div class="alert alert-info" style="padding: 8px 12px; margin-bottom: 12px; background-color: #e7f3ff; border-left: 3px solid #2196F3; font-size: 0.9em;">
-                            <strong>Note:</strong> Removing labels is not supported through this interface. You can only add new labels or update existing ones. To remove labels, use <code>kubectl label application &lt;app_name&gt; -n &lt;namespace&gt; &lt;label_key&gt;-</code> command.
-                        </div>
                         <div id="edit-labels-container">
-                            <!-- Labels will be added here dynamically -->
+                             <!-- Labels will be added here dynamically -->
                         </div>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="addEditLabel()" style="margin-top: 8px;">
                             ➕ Add Label

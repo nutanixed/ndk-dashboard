@@ -135,7 +135,7 @@ class SnapshotService:
     
     @staticmethod
     def restore_snapshot(namespace, name, target_namespace=None):
-        """Restore an application from a snapshot"""
+        """Restore an application from a snapshot using ApplicationSnapshotRestore CRD"""
         if not k8s_api:
             raise Exception('Kubernetes API not available')
         
@@ -159,45 +159,117 @@ class SnapshotService:
         # Use target namespace if provided, otherwise use original namespace
         restore_namespace = target_namespace if target_namespace else namespace
         
-        # Generate a unique name for the restored application
+        # Generate a unique name for the restore operation
         timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
-        restored_app_name = f"{original_app_name}-restore-{timestamp}"
+        restore_name = f"{original_app_name}-restore-{timestamp}"
         
-        # Create restore manifest
+        # Create ApplicationSnapshotRestore manifest (NDK 1.3.0+)
         restore_manifest = {
             'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
-            'kind': 'Application',
+            'kind': 'ApplicationSnapshotRestore',
             'metadata': {
-                'name': restored_app_name,
+                'name': restore_name,
                 'namespace': restore_namespace
             },
             'spec': {
-                'restoreFrom': {
-                    'snapshotRef': {
-                        'name': name,
-                        'namespace': namespace
-                    }
-                }
+                'applicationSnapshotName': name,
+                'applicationSnapshotNamespace': namespace
             }
         }
         
-        # Create the restored application
+        # Create the restore operation
         result = k8s_api.create_namespaced_custom_object(
             group=Config.NDK_API_GROUP,
             version=Config.NDK_API_VERSION,
             namespace=restore_namespace,
-            plural='applications',
+            plural='applicationsnapshotrestores',
             body=restore_manifest
         )
         
-        # Wait a moment for the restore to initialize
-        time.sleep(2)
+        # Wait for the restore to complete (poll for up to 5 minutes)
+        max_wait = 300  # 5 minutes
+        poll_interval = 5  # 5 seconds
+        elapsed = 0
         
+        print(f"Waiting for restore operation {restore_name} to complete...")
+        while elapsed < max_wait:
+            time.sleep(poll_interval)
+            elapsed += poll_interval
+            
+            try:
+                restore_status = k8s_api.get_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=restore_namespace,
+                    plural='applicationsnapshotrestores',
+                    name=restore_name
+                )
+                
+                status = restore_status.get('status', {})
+                completed = status.get('completed', False)
+                
+                if completed:
+                    print(f"✓ Restore operation completed after {elapsed}s")
+                    break
+                    
+                print(f"  Restore in progress... ({elapsed}s elapsed)")
+            except Exception as e:
+                print(f"  Error checking restore status: {e}")
+                break
+        
+        # After restore completes, create an Application CRD to manage the restored resources
+        # This allows NDK to discover and manage the restored application
+        app_manifest = {
+            'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
+            'kind': 'Application',
+            'metadata': {
+                'name': original_app_name,
+                'namespace': restore_namespace,
+                'labels': {
+                    'restored-from': name,
+                    'app.kubernetes.io/managed-by': 'ndk-dashboard'
+                }
+            },
+            'spec': {
+                'applicationSelector': {
+                    'resourceLabelSelectors': [
+                        {
+                            'labelSelector': {
+                                'matchLabels': {
+                                    'app': original_app_name
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+        
+        try:
+            # Create the Application CRD
+            k8s_api.create_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=restore_namespace,
+                plural='applications',
+                body=app_manifest
+            )
+            print(f"✓ Created Application CRD '{original_app_name}' in namespace '{restore_namespace}'")
+        except ApiException as e:
+            if e.status == 409:
+                print(f"  Application CRD '{original_app_name}' already exists")
+            else:
+                print(f"✗ Error creating Application CRD: {e}")
+                raise
+        
+        # The restored application will have the same name as the original
+        # but will be created by the ApplicationSnapshotRestore controller
         return {
-            'name': restored_app_name,
+            'name': original_app_name,  # The application name will be the original name
             'namespace': restore_namespace,
             'snapshot': name,
-            'original_application': original_app_name
+            'original_application': original_app_name,
+            'restore_name': restore_name  # The restore CRD name
         }
     
     @staticmethod

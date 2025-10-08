@@ -268,10 +268,13 @@ class ProtectionPlanService:
         
         # Parse retention value
         retention_policy = {}
-        if retention.isdigit():
+        # Handle both string and integer types
+        if isinstance(retention, int):
+            retention_policy['retentionCount'] = retention
+        elif isinstance(retention, str) and retention.isdigit():
             retention_policy['retentionCount'] = int(retention)
         else:
-            retention_policy['maxAge'] = retention
+            retention_policy['maxAge'] = str(retention)
         
         # Build annotations for selection mode
         annotations = {
@@ -280,6 +283,10 @@ class ProtectionPlanService:
         if selection_mode == 'by-label' and label_selector_key and label_selector_value:
             annotations['ndk-dashboard/label-selector-key'] = label_selector_key
             annotations['ndk-dashboard/label-selector-value'] = label_selector_value
+        
+        import sys
+        print(f"DEBUG CREATE: selection_mode={selection_mode}, label_key={label_selector_key}, label_value={label_selector_value}", file=sys.stderr, flush=True)
+        print(f"DEBUG CREATE: annotations={annotations}", file=sys.stderr, flush=True)
         
         # Create ProtectionPlan
         plan_manifest = {

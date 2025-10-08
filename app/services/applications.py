@@ -46,7 +46,7 @@ class ApplicationService:
                     continue
                 
                 # Extract state from conditions
-                state, message = ApplicationService._extract_state(status)
+                state, message = ApplicationService._extract_state(status, namespace, metadata.get('name', 'Unknown'))
                 
                 # Extract labels (excluding system labels)
                 all_labels = metadata.get('labels', {})
@@ -102,6 +102,105 @@ class ApplicationService:
             raise Exception(f'Application not found: {e}')
     
     @staticmethod
+    def get_restore_progress(namespace, name):
+        """
+        Get the restore progress for an application
+        
+        Returns:
+            dict: Progress information including state, percentage, and details
+        """
+        if not k8s_api:
+            raise Exception('Kubernetes API not available')
+        
+        try:
+            result = k8s_api.get_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=namespace,
+                plural='applications',
+                name=name
+            )
+            
+            metadata = result.get('metadata', {})
+            spec = result.get('spec', {})
+            status = result.get('status', {})
+            
+            # Check if this is a restore operation
+            restore_from = spec.get('restoreFrom', {})
+            is_restore = bool(restore_from)
+            
+            if not is_restore:
+                return {
+                    'is_restore': False,
+                    'state': 'Not a restore operation',
+                    'progress': 100,
+                    'message': 'This is not a restore operation'
+                }
+            
+            # Extract state from conditions
+            state, message = ApplicationService._extract_state(status, namespace, name)
+            
+            # Calculate progress based on state
+            progress = 0
+            stage = 'Initializing'
+            
+            conditions = status.get('conditions', [])
+            if conditions:
+                condition = conditions[0]
+                condition_type = condition.get('type', '')
+                condition_status = condition.get('status', '')
+                condition_message = condition.get('message', '')
+                
+                # Map condition types to progress stages
+                if condition_type == 'Restoring' or 'restore' in condition_message.lower():
+                    if condition_status == 'True':
+                        progress = 50
+                        stage = 'Restoring data from snapshot'
+                    else:
+                        progress = 20
+                        stage = 'Preparing restore'
+                elif condition_type == 'Ready':
+                    if condition_status == 'True':
+                        progress = 100
+                        stage = 'Restore complete'
+                    else:
+                        progress = 70
+                        stage = 'Finalizing restore'
+                elif condition_type == 'Reconciling':
+                    progress = 30
+                    stage = 'Creating resources'
+                elif 'pvc' in condition_message.lower() or 'volume' in condition_message.lower():
+                    progress = 60
+                    stage = 'Restoring volumes'
+                elif 'pod' in condition_message.lower() or 'workload' in condition_message.lower():
+                    progress = 80
+                    stage = 'Starting workloads'
+                else:
+                    progress = 10
+                    stage = 'Initializing restore'
+            
+            # Get snapshot reference
+            snapshot_ref = restore_from.get('snapshotRef', {})
+            snapshot_name = snapshot_ref.get('name', 'Unknown')
+            
+            return {
+                'is_restore': True,
+                'name': metadata.get('name'),
+                'namespace': metadata.get('namespace'),
+                'state': state,
+                'progress': progress,
+                'stage': stage,
+                'message': message,
+                'snapshot': snapshot_name,
+                'created': metadata.get('creationTimestamp', '')
+            }
+            
+        except ApiException as e:
+            if e.status == 404:
+                raise Exception('Application not found')
+            raise Exception(f'Failed to get restore progress: {e}')
+    
+    @staticmethod
     def delete_application(namespace, name, force=False, app_only=False):
         """
         Delete an NDK Application and optionally its resources
@@ -120,11 +219,11 @@ class ApplicationService:
         
         cleanup_log = []
         
-        # If app_only mode, skip all cleanup and just delete the Application CRD
+        # If app_only mode, delete workloads and PVCs but preserve snapshots
         if app_only:
-            print(f"🔄 Deleting Application CRD only (preserving snapshots & data): {namespace}/{name}")
+            print(f"🔄 Preparing for restore: deleting workloads & PVCs (preserving snapshots): {namespace}/{name}")
             
-            # Remove finalizers if present
+            # Get the application to retrieve its selector
             try:
                 app = k8s_api.get_namespaced_custom_object(
                     group=Config.NDK_API_GROUP,
@@ -134,6 +233,86 @@ class ApplicationService:
                     name=name
                 )
                 
+                # Get application selector
+                spec = app.get('spec', {})
+                app_selector = spec.get('applicationSelector', {})
+                label_selector = ApplicationService._build_label_selector(app_selector, name)
+                
+                cleanup_log.append(f"Using selector: {label_selector}")
+                
+                # Step 1: Delete StatefulSets
+                if k8s_apps_api:
+                    try:
+                        statefulsets = k8s_apps_api.list_namespaced_stateful_set(
+                            namespace=namespace,
+                            label_selector=label_selector
+                        )
+                        for sts in statefulsets.items:
+                            k8s_apps_api.delete_namespaced_stateful_set(
+                                name=sts.metadata.name,
+                                namespace=namespace
+                            )
+                            cleanup_log.append(f"✓ Deleted StatefulSet: {sts.metadata.name}")
+                            print(f"✓ Deleted StatefulSet: {sts.metadata.name}")
+                    except ApiException as e:
+                        if e.status != 404:
+                            cleanup_log.append(f"Warning: Error deleting StatefulSets: {e.reason}")
+                
+                # Step 2: Delete Deployments
+                if k8s_apps_api:
+                    try:
+                        deployments = k8s_apps_api.list_namespaced_deployment(
+                            namespace=namespace,
+                            label_selector=label_selector
+                        )
+                        for deploy in deployments.items:
+                            k8s_apps_api.delete_namespaced_deployment(
+                                name=deploy.metadata.name,
+                                namespace=namespace
+                            )
+                            cleanup_log.append(f"✓ Deleted Deployment: {deploy.metadata.name}")
+                            print(f"✓ Deleted Deployment: {deploy.metadata.name}")
+                    except ApiException as e:
+                        if e.status != 404:
+                            cleanup_log.append(f"Warning: Error deleting Deployments: {e.reason}")
+                
+                # Step 3: Delete Services
+                if k8s_core_api:
+                    try:
+                        services = k8s_core_api.list_namespaced_service(
+                            namespace=namespace,
+                            label_selector=label_selector
+                        )
+                        for svc in services.items:
+                            k8s_core_api.delete_namespaced_service(
+                                name=svc.metadata.name,
+                                namespace=namespace
+                            )
+                            cleanup_log.append(f"✓ Deleted Service: {svc.metadata.name}")
+                            print(f"✓ Deleted Service: {svc.metadata.name}")
+                    except ApiException as e:
+                        if e.status != 404:
+                            cleanup_log.append(f"Warning: Error deleting Services: {e.reason}")
+                
+                # Step 4: Delete PVCs
+                if k8s_core_api:
+                    try:
+                        pvcs = k8s_core_api.list_namespaced_persistent_volume_claim(
+                            namespace=namespace,
+                            label_selector=label_selector
+                        )
+                        for pvc in pvcs.items:
+                            k8s_core_api.delete_namespaced_persistent_volume_claim(
+                                name=pvc.metadata.name,
+                                namespace=namespace
+                            )
+                            cleanup_log.append(f"✓ Deleted PVC: {pvc.metadata.name}")
+                            print(f"✓ Deleted PVC: {pvc.metadata.name}")
+                    except ApiException as e:
+                        if e.status != 404:
+                            cleanup_log.append(f"Warning: Error deleting PVCs: {e.reason}")
+                
+                # Step 5: Remove finalizers from Application if present
                 if app.get('metadata', {}).get('finalizers'):
                     k8s_api.patch_namespaced_custom_object(
                         group=Config.NDK_API_GROUP,
@@ -143,28 +322,33 @@ class ApplicationService:
                         name=name,
                         body={'metadata': {'finalizers': []}}
                     )
-                    cleanup_log.append("Removed finalizers from Application")
+                    cleanup_log.append("✓ Removed finalizers from Application")
+                
             except ApiException as e:
                 if e.status != 404:
-                    cleanup_log.append(f"Warning: Could not remove finalizers: {e.reason}")
+                    cleanup_log.append(f"Warning: Could not process application: {e.reason}")
             
-            # Delete the Application CRD
-            k8s_api.delete_namespaced_custom_object(
-                group=Config.NDK_API_GROUP,
-                version=Config.NDK_API_VERSION,
-                namespace=namespace,
-                plural='applications',
-                name=name
-            )
+            # Step 6: Delete the Application CRD
+            try:
+                k8s_api.delete_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=namespace,
+                    plural='applications',
+                    name=name
+                )
+                cleanup_log.append(f"✓ Deleted Application CRD: {name}")
+                print(f"✓ Deleted Application CRD: {name}")
+            except ApiException as e:
+                if e.status != 404:
+                    cleanup_log.append(f"Warning: Could not delete Application CRD: {e.reason}")
             
-            cleanup_log.append(f"✓ Deleted Application CRD: {name}")
             cleanup_log.append("✓ Preserved all snapshots")
-            cleanup_log.append("✓ Preserved all PVCs and data")
             cleanup_log.append("✓ Preserved protection plans")
             
-            print(f"✓ Application CRD deleted (restore test mode): {namespace}/{name}")
+            print(f"✓ Application prepared for restore: {namespace}/{name}")
             
-            return 'Application deleted (snapshots & data preserved)', cleanup_log
+            return 'Application prepared for restore (workloads & PVCs deleted, snapshots preserved)', cleanup_log
         
         # Full deletion with cleanup
         # Step 1: Delete all snapshots
@@ -229,8 +413,15 @@ class ApplicationService:
         return f'Application {name} and all associated resources deleted successfully', cleanup_log
     
     @staticmethod
-    def update_labels(namespace, name, new_labels):
-        """Update labels on an NDK Application"""
+    def update_labels(namespace, name, new_labels, labels_to_remove=None):
+        """Update labels on an NDK Application
+        
+        Args:
+            namespace: Application namespace
+            name: Application name
+            new_labels: Dict of labels to add/update
+            labels_to_remove: List of label keys to remove
+        """
         if not k8s_api:
             raise Exception('Kubernetes API not available')
         
@@ -243,27 +434,61 @@ class ApplicationService:
             name=name
         )
         
-        # Preserve system labels
+        # Get current labels
         current_labels = app.get('metadata', {}).get('labels', {})
-        merged_labels = preserve_system_labels(current_labels, new_labels)
+        
+        print(f"[DEBUG] Current labels: {current_labels}")
+        print(f"[DEBUG] New labels: {new_labels}")
+        print(f"[DEBUG] Labels to remove: {labels_to_remove}")
+        
+        # Start with only system labels from current state
+        system_prefixes = ['app.kubernetes.io/', 'kubernetes.io/', 'k8s.io/', 'helm.sh/', 'kubectl.kubernetes.io/']
+        updated_labels = {
+            k: v for k, v in current_labels.items()
+            if any(k.startswith(prefix) for prefix in system_prefixes)
+        }
+        print(f"[DEBUG] Starting with system labels only: {updated_labels}")
+        
+        # Add new labels (user labels from frontend)
+        if new_labels:
+            updated_labels.update(new_labels)
+            print(f"[DEBUG] After adding new labels: {updated_labels}")
+        
+        # Note: To remove labels in Kubernetes, we must explicitly set them to null
+        # Build the patch with removed labels set to null
+        patch_labels = updated_labels.copy()
+        
+        # Explicitly set removed labels to null
+        if labels_to_remove:
+            for label_key in labels_to_remove:
+                patch_labels[label_key] = None
+            print(f"[DEBUG] Setting labels to null for removal: {labels_to_remove}")
         
         # Update the application with new labels
         patch = {
             'metadata': {
-                'labels': merged_labels
+                'labels': patch_labels
             }
         }
         
-        k8s_api.patch_namespaced_custom_object(
-            group=Config.NDK_API_GROUP,
-            version=Config.NDK_API_VERSION,
-            namespace=namespace,
-            plural='applications',
-            name=name,
-            body=patch
-        )
+        print(f"[DEBUG] Patching Kubernetes with: {patch}")
         
-        return new_labels
+        try:
+            result = k8s_api.patch_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=namespace,
+                plural='applications',
+                name=name,
+                body=patch
+            )
+            print(f"[DEBUG] Kubernetes patch succeeded!")
+            print(f"[DEBUG] Result labels: {result.get('metadata', {}).get('labels', {})}")
+        except Exception as e:
+            print(f"[ERROR] Kubernetes patch failed: {e}")
+            raise
+        
+        return updated_labels
     
     @staticmethod
     def get_debug_info(namespace, name):
@@ -415,11 +640,12 @@ class ApplicationService:
     # Helper methods
     
     @staticmethod
-    def _extract_state(status):
-        """Extract state and message from status conditions"""
+    def _extract_state(status, namespace, app_name):
+        """Extract state and message from status conditions, checking workload readiness"""
         state = 'Unknown'
         message = ''
         conditions = status.get('conditions', [])
+        
         if conditions:
             condition = conditions[0]
             if condition.get('status') == 'True':
@@ -427,7 +653,129 @@ class ApplicationService:
             else:
                 state = f"Not {condition.get('type', 'Unknown')}"
             message = condition.get('message', '')
+        
+        # If state is Active, check if workloads are actually ready
+        if state == 'Active':
+            summary = status.get('summary', {})
+            resources = summary.get('resources', {})
+            
+            # Check StatefulSets
+            statefulsets = resources.get('apps/v1/StatefulSet', [])
+            deployments = resources.get('apps/v1/Deployment', [])
+            pvcs = resources.get('v1/PersistentVolumeClaim', [])
+            
+            if statefulsets or deployments or pvcs:
+                # We have workloads, let's check their readiness
+                ready_info = ApplicationService._check_workload_readiness(status, namespace, app_name)
+                
+                if not ready_info['all_ready']:
+                    state = 'Provisioning'
+                    message = ready_info['message']
+        
         return state, message
+    
+    @staticmethod
+    def _check_workload_readiness(status, namespace, app_name):
+        """Check if all workloads (StatefulSets/Deployments) and PVCs are ready"""
+        if not k8s_apps_api or not k8s_core_api:
+            # If APIs not available, assume ready
+            return {
+                'all_ready': True,
+                'message': 'Unable to check readiness',
+                'ready_workloads': 0,
+                'total_workloads': 0,
+                'ready_pvcs': 0,
+                'total_pvcs': 0
+            }
+        
+        summary = status.get('summary', {})
+        resources = summary.get('resources', {})
+        
+        statefulsets = resources.get('apps/v1/StatefulSet', [])
+        deployments = resources.get('apps/v1/Deployment', [])
+        pvcs = resources.get('v1/PersistentVolumeClaim', [])
+        
+        total_workloads = len(statefulsets) + len(deployments)
+        ready_workloads = 0
+        total_pvcs = len(pvcs)
+        ready_pvcs = 0
+        
+        # Check if we have any workloads at all
+        if total_workloads == 0 and total_pvcs == 0:
+            # No workloads to check
+            return {
+                'all_ready': True,
+                'message': 'No workloads to check',
+                'ready_workloads': 0,
+                'total_workloads': 0,
+                'ready_pvcs': 0,
+                'total_pvcs': 0
+            }
+        
+        try:
+            # Check StatefulSets
+            for sts in statefulsets:
+                sts_name = sts.get('name')
+                try:
+                    sts_obj = k8s_apps_api.read_namespaced_stateful_set(sts_name, namespace)
+                    # Check if replicas are ready
+                    desired = sts_obj.spec.replicas or 0
+                    ready = sts_obj.status.ready_replicas or 0
+                    if ready >= desired and desired > 0:
+                        ready_workloads += 1
+                except ApiException:
+                    pass  # StatefulSet not found or error, skip
+            
+            # Check Deployments
+            for deploy in deployments:
+                deploy_name = deploy.get('name')
+                try:
+                    deploy_obj = k8s_apps_api.read_namespaced_deployment(deploy_name, namespace)
+                    # Check if replicas are ready
+                    desired = deploy_obj.spec.replicas or 0
+                    ready = deploy_obj.status.ready_replicas or 0
+                    if ready >= desired and desired > 0:
+                        ready_workloads += 1
+                except ApiException:
+                    pass  # Deployment not found or error, skip
+            
+            # Check PVCs
+            for pvc in pvcs:
+                pvc_name = pvc.get('name')
+                try:
+                    pvc_obj = k8s_core_api.read_namespaced_persistent_volume_claim(pvc_name, namespace)
+                    # Check if PVC is bound
+                    if pvc_obj.status.phase == 'Bound':
+                        ready_pvcs += 1
+                except ApiException:
+                    pass  # PVC not found or error, skip
+            
+            # Determine if all ready
+            all_ready = (ready_workloads == total_workloads) and (ready_pvcs == total_pvcs)
+            
+            if all_ready:
+                message = f"All resources ready: {total_workloads} workload(s), {total_pvcs} PVC(s)"
+            else:
+                message = f"Provisioning: {ready_workloads}/{total_workloads} workload(s), {ready_pvcs}/{total_pvcs} PVC(s) ready"
+            
+            return {
+                'all_ready': all_ready,
+                'message': message,
+                'ready_workloads': ready_workloads,
+                'total_workloads': total_workloads,
+                'ready_pvcs': ready_pvcs,
+                'total_pvcs': total_pvcs
+            }
+        except Exception as e:
+            # If any error occurs, assume not ready
+            return {
+                'all_ready': False,
+                'message': f"Error checking readiness: {str(e)}",
+                'ready_workloads': ready_workloads,
+                'total_workloads': total_workloads,
+                'ready_pvcs': ready_pvcs,
+                'total_pvcs': total_pvcs
+            }
     
     @staticmethod
     def _build_label_selector(app_selector, app_name):
