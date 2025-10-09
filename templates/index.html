@@ -11,7 +11,6 @@
     <div class="page-container">
         <nav class="navbar">
             <div class="nav-container">
-                <!-- Top-right action menu -->
                 <div class="nav-actions-menu">
                     <button id="refreshBtn" class="nav-icon-btn" title="Refresh Dashboard">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -51,7 +50,7 @@
         <!-- Statistics Cards -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-icon">📦</div>
+                <div class="stat-icon" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); color: white;">📦</div>
                 <div class="stat-content">
                     <div class="stat-value" id="stat-applications">-</div>
                     <div class="stat-label">Applications</div>
@@ -59,7 +58,7 @@
             </div>
             
             <div class="stat-card">
-                <div class="stat-icon">📸</div>
+                <div class="stat-icon" style="background: #dbeafe; color: #1e40af;">📸</div>
                 <div class="stat-content">
                     <div class="stat-value" id="stat-snapshots">-</div>
                     <div class="stat-label">Snapshots</div>
@@ -67,7 +66,7 @@
             </div>
             
             <div class="stat-card">
-                <div class="stat-icon">💾</div>
+                <div class="stat-icon" style="background: #d1fae5; color: #065f46;">💾</div>
                 <div class="stat-content">
                     <div class="stat-value" id="stat-clusters">-</div>
                     <div class="stat-label">Storage Clusters</div>
@@ -75,7 +74,7 @@
             </div>
             
             <div class="stat-card">
-                <div class="stat-icon">🛡️</div>
+                <div class="stat-icon" style="background: #fef3c7; color: #92400e;">🛡️</div>
                 <div class="stat-content">
                     <div class="stat-value" id="stat-plans">-</div>
                     <div class="stat-label">Protection Plans</div>
@@ -564,8 +563,7 @@
                     <div class="form-group">
                         <label for="deploy-storage-class">Storage Class:</label>
                         <select id="deploy-storage-class" class="form-control">
-                            <option value="default">Default Storage Class</option>
-                            <option value="default-storageclass-dev01">default-storageclass-dev01</option>
+                            <option value="">Loading storage classes...</option>
                         </select>
                     </div>
                     

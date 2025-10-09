@@ -1,6 +1,6 @@
 /* NDK Dashboard Styles - Aligned with NKP Cluster Visualizer */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 * { 
     margin: 0; 
@@ -59,9 +59,9 @@
     
     /* === SHADOWS === */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
     
     /* === GRADIENTS === */
     --gradient-brand: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
@@ -93,7 +93,7 @@ body {
 
 /* Page Container - wraps everything with rounded corners */
 .page-container {
-    max-width: 1600px;
+    max-width: 1800px;
     margin: 0 auto;
     background: var(--bg-secondary);
     border-radius: 16px;
@@ -188,37 +188,30 @@ body {
 
 .nav-content {
     display: flex;
-    align-items: center;
-    justify-content: center;
     flex-direction: column;
     gap: 0.5rem;
-    text-align: center;
-    width: 100%;
 }
 
 .nutanix-logo {
-    height: 120px;
-    width: auto;
-    max-width: 400px;
-    filter: drop-shadow(0 2px 4px rgba(79, 70, 229, 0.2));
+    width: 200px;
+    height: auto;
+    margin-bottom: 0.5rem;
+}
+
+.nutanix-logo .st0 {
+    fill: white;
 }
 
 .nav-content h1 {
-    font-size: 2.5rem;
+    font-size: 2rem;
     font-weight: 700;
-    margin: 0.25rem 0;
-    letter-spacing: -0.025em;
-    text-align: center;
-    width: 100%;
+    margin: 0;
 }
 
 .nav-subtitle {
-    font-size: 1.125rem;
-    font-weight: 400;
+    font-size: 1rem;
     opacity: 0.9;
-    margin: 0.25rem 0 0.75rem 0;
-    text-align: center;
-    width: 100%;
+    font-weight: 400;
 }
 
 /* Container */
@@ -243,33 +236,27 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
     border: 1px solid var(--border-light);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s;
     position: relative;
     overflow: hidden;
 }
 
-.stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--gradient-brand);
-}
-
 .stat-card:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--border-medium);
+    box-shadow: var(--shadow-md);
 }
 
 .stat-icon {
-    font-size: 2.5rem;
-    line-height: 1;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    flex-shrink: 0;
 }
 
 .stat-content {
@@ -279,7 +266,7 @@ body {
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--brand-primary);
+    color: var(--text-primary);
     line-height: 1;
     margin-bottom: 0.25rem;
 }
@@ -287,7 +274,7 @@ body {
 .stat-label {
     font-size: 0.875rem;
     color: var(--text-secondary);
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -316,7 +303,7 @@ body {
     font-weight: 600;
     cursor: pointer;
     border-radius: 8px;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     white-space: nowrap;
 }
 
@@ -385,12 +372,13 @@ body {
 }
 
 .filter-select {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-light);
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--border-medium);
     border-radius: 8px;
     font-size: 0.875rem;
     font-family: inherit;
-    transition: all 0.2s ease;
+    font-weight: 500;
+    transition: all 0.2s;
     background: var(--bg-secondary);
     color: var(--text-primary);
     min-width: 200px;
@@ -400,21 +388,23 @@ body {
 .filter-select:focus {
     outline: none;
     border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    background: white;
 }
 
 .filter-select:hover {
-    border-color: var(--border-medium);
+    border-color: var(--brand-primary);
+    background: var(--neutral-50);
 }
 
 /* Search Input */
 .search-input {
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-light);
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--border-medium);
     border-radius: 8px;
     font-size: 0.875rem;
     font-family: inherit;
-    transition: all 0.2s ease;
+    font-weight: 500;
+    transition: all 0.2s;
     background: var(--bg-secondary);
     color: var(--text-primary);
     min-width: 250px;
@@ -423,7 +413,7 @@ body {
 .search-input:focus {
     outline: none;
     border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    background: white;
 }
 
 .search-input::placeholder {
@@ -441,7 +431,7 @@ input[type="checkbox"] {
     cursor: pointer;
     border: 2px solid var(--border-light);
     background: var(--bg-secondary);
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     position: relative;
     flex-shrink: 0;
 }
@@ -612,12 +602,12 @@ input[type="checkbox"]:focus {
 /* Buttons */
 .btn {
     padding: 0.75rem 1.5rem;
-    border: 1px solid transparent;
+    border: 2px solid transparent;
     border-radius: 8px;
     font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
@@ -683,7 +673,7 @@ input[type="checkbox"]:focus {
     border-radius: 50px;
     backdrop-filter: blur(10px);
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     min-width: 90px;
 }
 
@@ -755,7 +745,7 @@ input[type="checkbox"] {
     border: 2px solid var(--border-light);
     border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     user-select: none;
 }
 
@@ -800,7 +790,7 @@ input[type="checkbox"] {
     border: 2px solid var(--border-medium);
     border-radius: 50%;
     background: var(--bg-card);
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     margin-right: 12px;
 }
 
@@ -815,7 +805,7 @@ input[type="checkbox"] {
     border-radius: 50%;
     background: var(--white);
     opacity: 0;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
 }
 
 .radio-card-content {
@@ -825,7 +815,7 @@ input[type="checkbox"] {
     font-weight: 500;
     font-size: 0.9375rem;
     color: var(--text-primary);
-    transition: color 0.2s ease;
+    transition: color 0.2s;
 }
 
 .radio-card-icon {
@@ -852,7 +842,7 @@ input[type="checkbox"] {
     user-select: none;
     padding: 8px 12px;
     border-radius: 6px;
-    transition: background 0.2s ease;
+    transition: background 0.2s;
 }
 
 .radio-inline:hover {
@@ -882,7 +872,7 @@ input[type="checkbox"] {
     cursor: help;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s;
 }
 
 .service-dns-wrapper:hover {
@@ -908,7 +898,7 @@ input[type="checkbox"] {
     box-shadow: var(--shadow-xl);
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.2s, transform 0.2s;
     font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
 }
 
@@ -966,12 +956,12 @@ input[type="checkbox"] {
 .btn-bulk,
 .btn-bulk-cancel {
     padding: 0.5rem 1rem;
-    border: 1px solid transparent;
+    border: 2px solid transparent;
     border-radius: 6px;
     font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     font-family: inherit;
     display: inline-flex;
     align-items: center;
@@ -1154,7 +1144,7 @@ input[type="checkbox"] {
     align-items: center;
     justify-content: center;
     border-radius: 6px;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
 }
 
 .modal-close:hover {
@@ -1201,12 +1191,13 @@ input[type="checkbox"] {
 .form-group select,
 .form-group textarea {
     width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-light);
+    padding: 0.5rem 1rem;
+    border: 2px solid var(--border-medium);
     border-radius: 8px;
     font-size: 0.875rem;
     font-family: inherit;
-    transition: all 0.2s ease;
+    font-weight: 500;
+    transition: all 0.2s;
     background: var(--bg-secondary);
     color: var(--text-primary);
 }
@@ -1216,7 +1207,7 @@ input[type="checkbox"] {
 .form-group textarea:focus {
     outline: none;
     border-color: var(--brand-primary);
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    background: white;
 }
 
 .form-group textarea {
@@ -1273,7 +1264,7 @@ input[type="checkbox"] {
     height: 100%;
     background: linear-gradient(90deg, var(--brand-primary), #0ea5e9);
     border-radius: 12px;
-    transition: width 0.5s ease;
+    transition: width 0.5s;
     position: relative;
     overflow: hidden;
 }
@@ -1411,7 +1402,7 @@ input[type="checkbox"] {
     font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
@@ -1584,7 +1575,7 @@ input[type="checkbox"] {
     border-radius: 8px;
     font-size: 0.9375rem;
     font-family: inherit;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
     background: var(--bg-secondary);
     color: var(--text-primary);
     box-sizing: border-box;
@@ -1777,7 +1768,7 @@ input[type="checkbox"] {
     height: 4px;
     background: var(--gradient-brand);
     transform: scaleX(0);
-    transition: transform 0.3s ease;
+    transition: transform 0.3s;
 }
 
 .template-card:hover {
@@ -1899,7 +1890,7 @@ input[type="checkbox"] {
     font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.2s;
 }
 
 .label-suggestion:hover {
@@ -1918,7 +1909,7 @@ input[type="checkbox"] {
     display: inline-block;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s;
 }
 
 .replica-count:hover {
@@ -1930,7 +1921,7 @@ input[type="checkbox"] {
     display: inline-block;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s;
 }
 
 .volume-group-count:hover {
@@ -2012,7 +2003,7 @@ input[type="checkbox"] {
     color: #34495e;
     gap: 8px;
     border-radius: 4px;
-    transition: background-color 0.15s ease;
+    transition: background-color 0.15s;
 }
 
 .info-tooltip .tooltip-item:hover {

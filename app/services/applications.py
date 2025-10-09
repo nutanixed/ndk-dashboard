@@ -5,7 +5,7 @@ import time
 import re
 from kubernetes.client.rest import ApiException
 from config import Config
-from app.extensions import k8s_api, k8s_core_api, k8s_apps_api
+from app.extensions import k8s_api, k8s_core_api, k8s_apps_api, with_auth_retry
 from app.utils.labels import filter_system_label_prefixes, filter_system_labels, preserve_system_labels
 
 # System namespaces to exclude
@@ -23,12 +23,16 @@ class ApplicationService:
         if not k8s_api:
             return []
         
-        try:
-            result = k8s_api.list_cluster_custom_object(
+        @with_auth_retry
+        def _fetch_applications():
+            return k8s_api.list_cluster_custom_object(
                 group=Config.NDK_API_GROUP,
                 version=Config.NDK_API_VERSION,
                 plural='applications'
             )
+        
+        try:
+            result = _fetch_applications()
             
             applications = []
             all_namespaces = set()
@@ -78,14 +82,18 @@ class ApplicationService:
         if not k8s_api:
             raise Exception('Kubernetes API not available')
         
-        try:
-            result = k8s_api.get_namespaced_custom_object(
+        @with_auth_retry
+        def _fetch_application():
+            return k8s_api.get_namespaced_custom_object(
                 group=Config.NDK_API_GROUP,
                 version=Config.NDK_API_VERSION,
                 namespace=namespace,
                 plural='applications',
                 name=name
             )
+        
+        try:
+            result = _fetch_application()
             
             metadata = result.get('metadata', {})
             labels = metadata.get('labels', {})

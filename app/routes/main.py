@@ -5,7 +5,7 @@ from flask import Blueprint, render_template, jsonify
 from datetime import datetime
 from kubernetes.client.rest import ApiException
 from app.utils import login_required, get_cached_or_fetch
-from app.extensions import k8s_api
+from app.extensions import k8s_api, with_auth_retry
 from config import Config
 
 main_bp = Blueprint('main', __name__)
@@ -45,12 +45,17 @@ def get_stats():
         def fetch_apps():
             if not k8s_api:
                 return []
-            try:
-                result = k8s_api.list_cluster_custom_object(
+            
+            @with_auth_retry
+            def _fetch():
+                return k8s_api.list_cluster_custom_object(
                     group=Config.NDK_API_GROUP,
                     version=Config.NDK_API_VERSION,
                     plural='applications'
                 )
+            
+            try:
+                result = _fetch()
                 return result.get('items', [])
             except ApiException as e:
                 print(f"Error fetching applications for stats: {e}")
@@ -60,12 +65,17 @@ def get_stats():
         def fetch_snapshots():
             if not k8s_api:
                 return []
-            try:
-                result = k8s_api.list_cluster_custom_object(
+            
+            @with_auth_retry
+            def _fetch():
+                return k8s_api.list_cluster_custom_object(
                     group=Config.NDK_API_GROUP,
                     version=Config.NDK_API_VERSION,
                     plural='applicationsnapshots'
                 )
+            
+            try:
+                result = _fetch()
                 return result.get('items', [])
             except ApiException as e:
                 print(f"Error fetching snapshots for stats: {e}")
@@ -75,12 +85,17 @@ def get_stats():
         def fetch_clusters():
             if not k8s_api:
                 return []
-            try:
-                result = k8s_api.list_cluster_custom_object(
+            
+            @with_auth_retry
+            def _fetch():
+                return k8s_api.list_cluster_custom_object(
                     group=Config.NDK_API_GROUP,
                     version=Config.NDK_API_VERSION,
                     plural='storageclusters'
                 )
+            
+            try:
+                result = _fetch()
                 return result.get('items', [])
             except ApiException as e:
                 print(f"Error fetching storage clusters for stats: {e}")
@@ -90,12 +105,17 @@ def get_stats():
         def fetch_plans():
             if not k8s_api:
                 return []
-            try:
-                result = k8s_api.list_cluster_custom_object(
+            
+            @with_auth_retry
+            def _fetch():
+                return k8s_api.list_cluster_custom_object(
                     group=Config.NDK_API_GROUP,
                     version=Config.NDK_API_VERSION,
                     plural='protectionplans'
                 )
+            
+            try:
+                result = _fetch()
                 return result.get('items', [])
             except ApiException as e:
                 print(f"Error fetching protection plans for stats: {e}")

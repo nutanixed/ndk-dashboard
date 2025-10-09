@@ -3,7 +3,7 @@ Storage service - Business logic for NDK Storage Clusters
 """
 import base64
 from kubernetes.client.rest import ApiException
-from app.extensions import k8s_api, k8s_core_api
+from app.extensions import k8s_api, k8s_core_api, with_auth_retry
 from config import Config
 
 
@@ -18,12 +18,17 @@ class StorageService:
         
         # Try to get Prism Central endpoint from secret
         pc_endpoint = 'Unknown'
+        
+        @with_auth_retry
+        def _fetch_pc_secret():
+            return k8s_core_api.read_namespaced_secret(
+                name='pc-secret',
+                namespace='ndk-operator'
+            )
+        
         try:
             if k8s_core_api:
-                secret = k8s_core_api.read_namespaced_secret(
-                    name='pc-secret',
-                    namespace='ndk-operator'
-                )
+                secret = _fetch_pc_secret()
                 if secret.data and 'endpoint' in secret.data:
                     endpoint = base64.b64decode(secret.data['endpoint']).decode('utf-8')
                     port = '9440'
@@ -33,12 +38,16 @@ class StorageService:
         except Exception as e:
             print(f"Warning: Could not read PC secret: {e}")
         
-        try:
-            result = k8s_api.list_cluster_custom_object(
+        @with_auth_retry
+        def _fetch_storage_clusters():
+            return k8s_api.list_cluster_custom_object(
                 group=Config.NDK_API_GROUP,
                 version=Config.NDK_API_VERSION,
                 plural='storageclusters'
             )
+        
+        try:
+            result = _fetch_storage_clusters()
             
             clusters = []
             for item in result.get('items', []):

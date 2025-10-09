@@ -3151,7 +3151,51 @@ async function loadWorkerPools() {
         // Keep the default option even if loading fails
     }
 }
-
+async function loadStorageClasses() {
+    try {
+        const response = await fetch('/api/storageclasses');
+        if (response.ok) {
+            const data = await response.json();
+            const select = document.getElementById('deploy-storage-class');
+            
+            // Clear existing options
+            select.innerHTML = '';
+            
+            // Add storage classes
+            if (data.storageClasses && data.storageClasses.length > 0) {
+                data.storageClasses.forEach(sc => {
+                    const option = document.createElement('option');
+                    option.value = sc.name;
+                    
+                    // Display name with indicator if it's the default
+                    if (sc.isDefault) {
+                        option.textContent = `${sc.name} (default)`;
+                        option.selected = true; // Select the default storage class
+                    } else {
+                        option.textContent = sc.name;
+                    }
+                    
+                    select.appendChild(option);
+                });
+            } else {
+                // If no storage classes found, add a placeholder
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No storage classes available';
+                select.appendChild(option);
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load storage classes:', error);
+        // Add error option
+        const select = document.getElementById('deploy-storage-class');
+        select.innerHTML = '';
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Failed to load storage classes';
+        select.appendChild(option);
+    }
+}
 function handleNamespaceChange() {
     const select = document.getElementById('deploy-namespace-select');
     const input = document.getElementById('deploy-namespace');
@@ -3272,7 +3316,10 @@ function showDeployModal(appType) {
     
     // Load worker pools for dropdown
     loadWorkerPools();
-    
+
+    // Load storage classes for dropdown
+    loadStorageClasses();
+
     // Show modal
     document.getElementById('deploy-modal').style.display = 'flex';
 }

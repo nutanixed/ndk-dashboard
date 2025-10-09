@@ -2,7 +2,7 @@
 Protection Plans service - Business logic for NDK Protection Plans
 """
 from kubernetes.client.rest import ApiException
-from app.extensions import k8s_api
+from app.extensions import k8s_api, with_auth_retry
 from config import Config
 
 
@@ -15,12 +15,16 @@ class ProtectionPlanService:
         if not k8s_api:
             return []
         
-        try:
-            result = k8s_api.list_cluster_custom_object(
+        @with_auth_retry
+        def _fetch_protection_plans():
+            return k8s_api.list_cluster_custom_object(
                 group=Config.NDK_API_GROUP,
                 version=Config.NDK_API_VERSION,
                 plural='protectionplans'
             )
+        
+        try:
+            result = _fetch_protection_plans()
             
             plans = []
             for item in result.get('items', []):

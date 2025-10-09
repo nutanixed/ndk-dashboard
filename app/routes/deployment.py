@@ -7,7 +7,7 @@ import json
 import re
 from app.utils import login_required, invalidate_cache
 from app.services.deployment import DeploymentService
-from app.extensions import k8s_core_api
+from app.extensions import k8s_core_api, k8s_storage_api
 
 deployment_bp = Blueprint('deployment', __name__)
 
@@ -138,5 +138,38 @@ def get_worker_pools():
                         worker_pools.add(pool_name)
         
         return jsonify({'workerPools': sorted(list(worker_pools))})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@deployment_bp.route('/storageclasses', methods=['GET'])
+@login_required
+def get_storage_classes():
+    """Get list of all storage classes"""
+    if not k8s_storage_api:
+        return jsonify({'error': 'Kubernetes Storage API not available'}), 500
+    
+    try:
+        storage_classes = k8s_storage_api.list_storage_class()
+        storage_class_list = []
+        
+        for sc in storage_classes.items:
+            sc_info = {
+                'name': sc.metadata.name,
+                'provisioner': sc.provisioner,
+                'isDefault': False
+            }
+            
+            # Check if this is the default storage class
+            annotations = sc.metadata.annotations or {}
+            if annotations.get('storageclass.kubernetes.io/is-default-class') == 'true':
+                sc_info['isDefault'] = True
+            
+            storage_class_list.append(sc_info)
+        
+        # Sort with default storage class first, then alphabetically
+        storage_class_list.sort(key=lambda x: (not x['isDefault'], x['name']))
+        
+        return jsonify({'storageClasses': storage_class_list})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
