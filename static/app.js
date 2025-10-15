@@ -2675,10 +2675,21 @@ async function savePlan() {
     }
 }
 
-async function deletePlan(name, namespace) {
-    if (!confirm(`Are you sure you want to delete protection plan "${name}"?\n\nThis will not delete existing snapshots created by this plan.`)) {
-        return;
-    }
+function deletePlan(name, namespace) {
+    document.getElementById('delete-plan-name').textContent = name;
+    document.getElementById('delete-plan-namespace-hidden').value = namespace;
+    document.getElementById('delete-plan-modal').style.display = 'flex';
+}
+
+function closeDeletePlanModal() {
+    document.getElementById('delete-plan-modal').style.display = 'none';
+}
+
+async function confirmDeletePlan() {
+    const name = document.getElementById('delete-plan-name').textContent;
+    const namespace = document.getElementById('delete-plan-namespace-hidden').value;
+    
+    closeDeletePlanModal();
     
     try {
         showToast('Deleting protection plan...', 'info');

@@ -933,6 +933,54 @@
         </div>
     </div>
 
+    <!-- Delete Protection Plan Confirmation Modal -->
+    <div id="delete-plan-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Delete Protection Plan</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Confirm deletion</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeDeletePlanModal()" aria-label="Close" style="color: white; opacity: 1; font-size: 28px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15);">✕</button>
+            </div>
+            <div class="modal-body" style="padding: 28px;">
+                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #fca5a5;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #b91c1c; font-weight: 500;">Warning</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #991b1b;">This will not delete existing snapshots created by this plan.</p>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.8125rem; color: #64748b; margin-bottom: 4px;">Protection Plan Name</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #1e293b;" id="delete-plan-name"></div>
+                </div>
+                
+                <input type="hidden" id="delete-plan-namespace-hidden">
+            </div>
+            <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeDeletePlanModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeletePlan()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Plan</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Delete Snapshot Confirmation Modal -->
     <div id="delete-snapshot-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
