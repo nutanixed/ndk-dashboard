@@ -74,24 +74,58 @@ def delete_snapshot(namespace, name):
 @snapshots_bp.route('/snapshots/<namespace>/<name>/restore', methods=['POST'])
 @login_required
 def restore_snapshot(namespace, name):
-    """Restore an application from a snapshot"""
+    """Restore an application from a snapshot (supports cloning with custom name)"""
     try:
         data = request.get_json() or {}
         target_namespace = data.get('targetNamespace')
+        new_app_name = data.get('newAppName')  # Optional: for cloning
         
-        restore_info = SnapshotService.restore_snapshot(namespace, name, target_namespace)
+        restore_info = SnapshotService.restore_snapshot(
+            namespace, 
+            name, 
+            target_namespace,
+            new_app_name
+        )
         
         # Invalidate cache to show new application
         invalidate_cache('applications')
         
+        # Customize message based on whether it's a clone or restore
+        action = 'cloned' if restore_info.get('is_clone') else 'restored'
+        message = f'Application {action} as {restore_info["name"]}'
+        
         return jsonify({
             'success': True,
-            'message': f'Application restored as {restore_info["name"]}',
+            'message': message,
             'application': restore_info
         }), 201
         
     except ApiException as e:
-        error_msg = f"Failed to restore snapshot: {e.reason}"
+        error_msg = f"{e.reason}"
+        if e.body:
+            try:
+                error_body = json.loads(e.body)
+                error_msg = error_body.get('message', error_msg)
+                # Log full error for debugging
+                print(f"✗ Restore API error: {error_msg}")
+                print(f"✗ Full error body: {e.body}")
+            except Exception as parse_error:
+                print(f"✗ Could not parse error body: {parse_error}")
+                pass
+        return jsonify({'error': error_msg}), e.status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@snapshots_bp.route('/snapshots/restore-status/<namespace>/<restore_name>', methods=['GET'])
+@login_required
+def get_restore_status(namespace, restore_name):
+    """Get detailed status of a restore operation"""
+    try:
+        status_info = SnapshotService.get_restore_status(namespace, restore_name)
+        return jsonify(status_info), 200
+    except ApiException as e:
+        error_msg = f"Failed to get restore status: {e.reason}"
         if e.body:
             try:
                 error_body = json.loads(e.body)

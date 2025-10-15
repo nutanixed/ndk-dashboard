@@ -393,8 +393,30 @@
             </div>
         </div>
 
+        <!-- Admin Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab-btn active" onclick="switchTab('applications')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="9" y1="9" x2="15" y2="9"></line>
+                </svg>
+                Applications
+            </button>
+            <button class="admin-tab-btn" onclick="switchTab('restores')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline>
+                    <polyline points="7.5 19.79 7.5 14.6 3 12"></polyline>
+                    <polyline points="21 12 16.5 14.6 16.5 19.79"></polyline>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                Restore Cleanup
+            </button>
+        </div>
+
         <!-- Applications Tab -->
-        <div class="admin-tab-content active" id="applications-tab" style="margin-top: 48px;">
+        <div class="admin-tab-content active" id="applications-tab">
             <div class="section-header">
                 <h2>Manage Applications</h2>
                 <div class="filter-controls">
@@ -406,6 +428,49 @@
             </div>
             <div id="applications-loading" class="loading">Loading applications...</div>
             <div id="applications-content"></div>
+        </div>
+
+        <!-- Restore Cleanup Tab -->
+        <div class="admin-tab-content" id="restores-tab">
+            <div class="section-header">
+                <h2>Restore Job Cleanup</h2>
+                <div class="filter-controls">
+                    <select id="restore-namespace-filter" class="filter-select">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="cleanupCompletedRestores()" style="margin-left: 12px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Cleanup All Completed
+                    </button>
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <div style="display: flex; align-items: start; gap: 16px;">
+                    <div style="width: 48px; height: 48px; background: #3b82f6; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 16px; font-weight: 600;">About Restore Jobs</h3>
+                        <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+                            ApplicationSnapshotRestore resources are created when you restore a snapshot. Once completed, they remain in the cluster but serve no further purpose.
+                        </p>
+                        <p style="margin: 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+                            <strong>Recommendation:</strong> Periodically clean up completed restore jobs to keep your cluster tidy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="restores-loading" class="loading">Loading restore jobs...</div>
+            <div id="restores-content"></div>
         </div>
     </div>
 
@@ -835,6 +900,199 @@
         function closeDeleteProgressModal() {
             document.getElementById('deleteProgressModal').classList.remove('active');
         }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.admin-tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.closest('.admin-tab-btn').classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'restores') {
+                loadRestoreJobs();
+            }
+        }
+
+        // Restore Jobs Management
+        let allRestoreJobs = [];
+
+        async function loadRestoreJobs() {
+            const loading = document.getElementById('restores-loading');
+            const content = document.getElementById('restores-content');
+            
+            loading.style.display = 'block';
+            content.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/restores');
+                const data = await response.json();
+                allRestoreJobs = data;
+                
+                loading.style.display = 'none';
+                renderRestoreJobs(data);
+                updateNamespaceFilter(data, 'restore-namespace-filter');
+            } catch (error) {
+                loading.style.display = 'none';
+                content.innerHTML = '<div class="empty-state">Error loading restore jobs: ' + error.message + '</div>';
+            }
+        }
+
+        function renderRestoreJobs(jobs) {
+            const content = document.getElementById('restores-content');
+            
+            if (jobs.length === 0) {
+                content.innerHTML = '<div class="empty-state">No restore jobs found</div>';
+                return;
+            }
+
+            const completedCount = jobs.filter(j => j.completed).length;
+            const inProgressCount = jobs.filter(j => !j.completed).length;
+
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 20px; color: white; box-shadow: var(--shadow-md);">
+                        <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${completedCount}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Completed</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 12px; padding: 20px; color: white; box-shadow: var(--shadow-md);">
+                        <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${inProgressCount}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">In Progress</div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border-radius: 12px; padding: 20px; color: white; box-shadow: var(--shadow-md);">
+                        <div style="font-size: 32px; font-weight: 700; margin-bottom: 4px;">${jobs.length}</div>
+                        <div style="font-size: 14px; opacity: 0.9;">Total</div>
+                    </div>
+                </div>
+                
+                <table class="resource-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Namespace</th>
+                            <th>Snapshot</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            jobs.forEach(job => {
+                const statusBadge = job.completed 
+                    ? '<span class="badge badge-active">Completed</span>'
+                    : '<span class="badge" style="background: #dbeafe; color: #1e40af;">In Progress</span>';
+                
+                const createdDate = new Date(job.created).toLocaleString();
+
+                html += `
+                    <tr>
+                        <td style="font-weight: 500;">${job.name}</td>
+                        <td><span class="badge" style="background: var(--bg-secondary); color: var(--text-primary);">${job.namespace}</span></td>
+                        <td style="font-family: monospace; font-size: 13px;">${job.snapshot_name}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-size: 13px; color: var(--text-secondary);">${createdDate}</td>
+                        <td>
+                            <button class="action-btn btn-delete" onclick="deleteRestoreJob('${job.namespace}', '${job.name}')">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        }
+
+        async function deleteRestoreJob(namespace, name) {
+            if (!confirm(`Are you sure you want to delete restore job "${name}" from namespace "${namespace}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/restores/${namespace}/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('Restore job deleted successfully');
+                    loadRestoreJobs();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error deleting restore job: ' + error.message);
+            }
+        }
+
+        async function cleanupCompletedRestores() {
+            const namespace = document.getElementById('restore-namespace-filter').value;
+            const namespaceParam = namespace === 'all' ? null : namespace;
+            
+            const completedCount = allRestoreJobs.filter(j => j.completed && (namespaceParam === null || j.namespace === namespaceParam)).length;
+            
+            if (completedCount === 0) {
+                alert('No completed restore jobs to clean up.');
+                return;
+            }
+
+            if (!confirm(`This will delete ${completedCount} completed restore job(s). Continue?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/restores/cleanup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ namespace: namespaceParam })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    let message = `Cleanup complete!\n\nDeleted: ${data.deleted}\nFailed: ${data.failed}`;
+                    if (data.messages.length > 0) {
+                        message += '\n\nDetails:\n' + data.messages.join('\n');
+                    }
+                    alert(message);
+                    loadRestoreJobs();
+                } else {
+                    alert('Error during cleanup: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error during cleanup: ' + error.message);
+            }
+        }
+
+        // Namespace filter for restore jobs
+        document.getElementById('restore-namespace-filter').addEventListener('change', (e) => {
+            const namespace = e.target.value;
+            if (namespace === 'all') {
+                renderRestoreJobs(allRestoreJobs);
+            } else {
+                const filtered = allRestoreJobs.filter(job => job.namespace === namespace);
+                renderRestoreJobs(filtered);
+            }
+        });
 
         // Initial load
         loadApplications();

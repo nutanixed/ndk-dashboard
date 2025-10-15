@@ -65,12 +65,13 @@ class ProtectionPlanService:
                 plan_namespace = metadata.get('namespace', 'default')
                 try:
                     # Fetch snapshots with label selector for this protection plan
+                    # NDK uses the full domain prefix for protection plan labels
                     snapshots = k8s_api.list_namespaced_custom_object(
                         group=Config.NDK_API_GROUP,
                         version=Config.NDK_API_VERSION,
                         namespace=plan_namespace,
                         plural='applicationsnapshots',
-                        label_selector=f'protectionplan={plan_name}'
+                        label_selector=f'dataservices.nutanix.com/protection-plan={plan_name}'
                     )
                     
                     # Find the most recent snapshot creation time
@@ -93,11 +94,12 @@ class ProtectionPlanService:
                 finalizers = metadata.get('finalizers', [])
                 is_deleting = deletion_timestamp is not None
                 
-                # Extract selection mode and label selector from annotations
+                # Extract selection mode, label selector, and timezone from annotations
                 annotations = metadata.get('annotations', {})
                 selection_mode = annotations.get('ndk-dashboard/selection-mode', 'by-name')
                 label_selector_key = annotations.get('ndk-dashboard/label-selector-key')
                 label_selector_value = annotations.get('ndk-dashboard/label-selector-value')
+                timezone = annotations.get('ndk-dashboard/timezone', 'UTC')  # Default to UTC if not set
                 
                 plans.append({
                     'name': plan_name,
@@ -113,7 +115,8 @@ class ProtectionPlanService:
                     'hasFinalizers': len(finalizers) > 0,
                     'selectionMode': selection_mode,
                     'labelSelectorKey': label_selector_key,
-                    'labelSelectorValue': label_selector_value
+                    'labelSelectorValue': label_selector_value,
+                    'timezone': timezone  # Include timezone for display
                 })
             
             return plans
@@ -267,7 +270,7 @@ class ProtectionPlanService:
     @staticmethod
     def create_protection_plan(namespace, name, schedule, retention, applications, 
                               selection_mode='by-name', label_selector_key=None, 
-                              label_selector_value=None):
+                              label_selector_value=None, timezone='UTC'):
         """Create a new protection plan"""
         if not k8s_api:
             raise Exception('Kubernetes API not available')
@@ -302,11 +305,15 @@ class ProtectionPlanService:
         elif isinstance(retention, str) and retention.isdigit():
             retention_policy['retentionCount'] = int(retention)
         else:
+            # When using maxAge (time-based expiration), retentionCount is still required
+            # Set it to a reasonable default (e.g., 3) to satisfy the API validation
+            retention_policy['retentionCount'] = 3
             retention_policy['maxAge'] = str(retention)
         
-        # Build annotations for selection mode
+        # Build annotations for selection mode and timezone
         annotations = {
-            'ndk-dashboard/selection-mode': selection_mode
+            'ndk-dashboard/selection-mode': selection_mode,
+            'ndk-dashboard/timezone': timezone  # Store timezone for display purposes
         }
         if selection_mode == 'by-label' and label_selector_key and label_selector_value:
             annotations['ndk-dashboard/label-selector-key'] = label_selector_key
@@ -316,31 +323,7 @@ class ProtectionPlanService:
         print(f"DEBUG CREATE: selection_mode={selection_mode}, label_key={label_selector_key}, label_value={label_selector_value}", file=sys.stderr, flush=True)
         print(f"DEBUG CREATE: annotations={annotations}", file=sys.stderr, flush=True)
         
-        # Create ProtectionPlan
-        plan_manifest = {
-            'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
-            'kind': 'ProtectionPlan',
-            'metadata': {
-                'name': name,
-                'namespace': namespace,
-                'annotations': annotations
-            },
-            'spec': {
-                'scheduleName': scheduler_name,
-                'retentionPolicy': retention_policy,
-                'applications': applications
-            }
-        }
-        
-        result = k8s_api.create_namespaced_custom_object(
-            group=Config.NDK_API_GROUP,
-            version=Config.NDK_API_VERSION,
-            namespace=namespace,
-            plural='protectionplans',
-            body=plan_manifest
-        )
-        
-        # Create AppProtectionPlan resources
+        # Determine which applications to protect BEFORE creating the ProtectionPlan
         apps_to_protect = []
         
         if selection_mode == 'by-name' and applications:
@@ -366,6 +349,30 @@ class ProtectionPlanService:
                             print(f"Found matching application: {app_name} with {label_selector_key}={label_selector_value}", file=sys.stderr, flush=True)
             except ApiException as e:
                 print(f"Warning: Failed to query NDK Applications: {e.reason}", file=sys.stderr, flush=True)
+        
+        # Create ProtectionPlan with the populated applications list
+        plan_manifest = {
+            'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
+            'kind': 'ProtectionPlan',
+            'metadata': {
+                'name': name,
+                'namespace': namespace,
+                'annotations': annotations
+            },
+            'spec': {
+                'scheduleName': scheduler_name,
+                'retentionPolicy': retention_policy,
+                'applications': apps_to_protect
+            }
+        }
+        
+        result = k8s_api.create_namespaced_custom_object(
+            group=Config.NDK_API_GROUP,
+            version=Config.NDK_API_VERSION,
+            namespace=namespace,
+            plural='protectionplans',
+            body=plan_manifest
+        )
         
         # Create AppProtectionPlan for each application
         for app in apps_to_protect:
@@ -413,5 +420,5 @@ class ProtectionPlanService:
             'namespace': namespace,
             'schedule': schedule,
             'retention': retention,
-            'applications': applications
+            'applications': apps_to_protect
         }

@@ -27,6 +27,7 @@ def manage_protectionplans():
             retention = data.get('retention')
             applications = data.get('applications', [])
             selection_mode = data.get('selectionMode', 'by-name')
+            timezone = data.get('timezone', 'UTC')  # Get timezone for display purposes
             
             # Handle label selector - can be nested object or separate fields
             label_selector = data.get('labelSelector', {})
@@ -38,7 +39,7 @@ def manage_protectionplans():
             
             plan_info = ProtectionPlanService.create_protection_plan(
                 namespace, name, schedule, retention, applications,
-                selection_mode, label_selector_key, label_selector_value
+                selection_mode, label_selector_key, label_selector_value, timezone
             )
             
             # Invalidate cache
@@ -288,6 +289,99 @@ def trigger_protection_plan(namespace, name):
         return jsonify({'error': str(e)}), 500
 
 
+@protectionplans_bp.route('/protectionplans/<namespace>/<name>/applications')
+@login_required
+def get_protection_plan_applications(namespace, name):
+    """Get applications protected by a protection plan"""
+    try:
+        if not k8s_api:
+            return jsonify({'error': 'Kubernetes API not available'}), 503
+        
+        # Get the protection plan to extract selection mode
+        plan = k8s_api.get_namespaced_custom_object(
+            group=Config.NDK_API_GROUP,
+            version=Config.NDK_API_VERSION,
+            namespace=namespace,
+            plural='protectionplans',
+            name=name
+        )
+        
+        metadata = plan.get('metadata', {})
+        annotations = metadata.get('annotations', {})
+        selection_mode = annotations.get('ndk-dashboard/selection-mode', 'by-name')
+        
+        protected_apps = []
+        seen_apps = set()
+        
+        if selection_mode == 'by-label':
+            # Label-based selection
+            label_key = annotations.get('ndk-dashboard/label-selector-key')
+            label_value = annotations.get('ndk-dashboard/label-selector-value')
+            
+            if label_key and label_value:
+                # Get all applications in the namespace
+                applications = k8s_api.list_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=namespace,
+                    plural='applications'
+                )
+                
+                # Filter applications by label
+                for app in applications.get('items', []):
+                    app_metadata = app.get('metadata', {})
+                    app_labels = app_metadata.get('labels', {})
+                    app_name = app_metadata.get('name')
+                    app_namespace = app_metadata.get('namespace')
+                    
+                    if app_labels.get(label_key) == label_value:
+                        app_key = f"{app_namespace}/{app_name}"
+                        if app_key not in seen_apps:
+                            seen_apps.add(app_key)
+                            protected_apps.append({
+                                'name': app_name,
+                                'namespace': app_namespace
+                            })
+        else:
+            # By-name selection: use AppProtectionPlan resources
+            app_protection_plans = k8s_api.list_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=namespace,
+                plural='appprotectionplans'
+            )
+            
+            for app_plan in app_protection_plans.get('items', []):
+                app_plan_spec = app_plan.get('spec', {})
+                plan_names = app_plan_spec.get('protectionPlanNames', [])
+                
+                if name in plan_names:
+                    app_name = app_plan_spec.get('applicationName')
+                    app_namespace = app_plan.get('metadata', {}).get('namespace')
+                    
+                    if app_name and app_namespace:
+                        app_key = f"{app_namespace}/{app_name}"
+                        if app_key not in seen_apps:
+                            seen_apps.add(app_key)
+                            protected_apps.append({
+                                'name': app_name,
+                                'namespace': app_namespace
+                            })
+        
+        # Sort by name
+        protected_apps.sort(key=lambda x: x['name'])
+        
+        return jsonify({
+            'selectionMode': selection_mode,
+            'applications': protected_apps
+        }), 200
+        
+    except ApiException as e:
+        return jsonify({'error': f'Failed to get applications: {e.reason}'}), e.status
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @protectionplans_bp.route('/protectionplans/<namespace>/<name>/history')
 @login_required
 def get_protection_plan_history(namespace, name):
@@ -297,11 +391,12 @@ def get_protection_plan_history(namespace, name):
             return jsonify({'error': 'Kubernetes API not available'}), 503
         
         # Get all snapshots with the protection plan label
+        # NDK uses the full domain prefix for protection plan labels
         result = k8s_api.list_cluster_custom_object(
             group=Config.NDK_API_GROUP,
             version=Config.NDK_API_VERSION,
             plural='applicationsnapshots',
-            label_selector=f'protectionplan={name}'
+            label_selector=f'dataservices.nutanix.com/protection-plan={name}'
         )
         
         snapshots = []

@@ -435,8 +435,15 @@ function renderData(type, data) {
 }
 
 function renderApplications(data, container) {
-    const bulkActionsHtml = data.length > 0 ? `
-        <div class="bulk-actions" id="bulk-actions" style="display: none;">
+    // Sort applications alphabetically by name
+    const sortedData = [...data].sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+    
+    const bulkActionsHtml = sortedData.length > 0 ? `
+    <div class="bulk-actions" id="bulk-actions" style="display: none;">
             <span id="selected-count">0 selected</span>
             <button class="btn-bulk" onclick="bulkCreateSnapshots()">📸 Create Snapshots</button>
             <button class="btn-bulk-cancel" onclick="clearSelection()">✕ Clear</button>
@@ -463,7 +470,7 @@ function renderApplications(data, container) {
                     </tr>
                 </thead>
                 <tbody>
-                    ${data.map(app => {
+                    ${sortedData.map(app => {
                         const appName = app.name || 'Unknown';
                         const appNamespace = app.namespace || 'default';
                         const appState = app.state || 'Unknown';
@@ -1052,6 +1059,144 @@ function hideServiceDnsTooltip() {
     }
 }
 
+// Protection Plan Apps tooltip management
+const protectionPlanAppsCache = new Map();
+let protectionPlanAppsTooltipTimeout = null;
+let hideProtectionPlanAppsTooltipTimeout = null;
+
+async function fetchProtectionPlanApplications(planName, planNamespace) {
+    const cacheKey = `${planNamespace}/${planName}`;
+    
+    // Check cache first
+    if (protectionPlanAppsCache.has(cacheKey)) {
+        return protectionPlanAppsCache.get(cacheKey);
+    }
+    
+    try {
+        const response = await fetch(`/api/protectionplans/${planNamespace}/${planName}/applications`);
+        if (response.ok) {
+            const data = await response.json();
+            protectionPlanAppsCache.set(cacheKey, data);
+            return data;
+        }
+    } catch (error) {
+        console.error(`Error fetching applications for protection plan ${planName}:`, error);
+    }
+    
+    return null;
+}
+
+function showProtectionPlanAppsTooltip(element, planName, planNamespace) {
+    // Clear any existing hide timeout
+    if (hideProtectionPlanAppsTooltipTimeout) {
+        clearTimeout(hideProtectionPlanAppsTooltipTimeout);
+        hideProtectionPlanAppsTooltipTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (protectionPlanAppsTooltipTimeout) {
+        clearTimeout(protectionPlanAppsTooltipTimeout);
+    }
+    
+    // Add delay before showing tooltip to allow text selection
+    protectionPlanAppsTooltipTimeout = setTimeout(async () => {
+        const data = await fetchProtectionPlanApplications(planName, planNamespace);
+        
+        if (!data || !data.applications || data.applications.length === 0) {
+            return;
+        }
+        
+        // Remove any existing tooltip
+        const existingTooltip = document.getElementById('protection-plan-apps-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'protection-plan-apps-tooltip';
+        tooltip.className = 'info-tooltip';
+        
+        // Add hover handlers to keep tooltip visible
+        tooltip.addEventListener('mouseenter', () => {
+            if (hideProtectionPlanAppsTooltipTimeout) {
+                clearTimeout(hideProtectionPlanAppsTooltipTimeout);
+                hideProtectionPlanAppsTooltipTimeout = null;
+            }
+        });
+        tooltip.addEventListener('mouseleave', () => {
+            scheduleHideProtectionPlanAppsTooltip();
+        });
+        
+        // Build tooltip content
+        let tooltipContent = '<div class="tooltip-header">Protected Applications</div>';
+        tooltipContent += '<div class="tooltip-body">';
+
+        data.applications.forEach((app, appIndex) => {
+            // Application name and namespace on a single line with status indicator
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-status" style="background-color: #2ecc71;"></span>
+                <span class="tooltip-item-value">${escapeHtml(app.name)} <span style="color: #6c757d;">(${escapeHtml(app.namespace)})</span></span>
+            </div>`;
+            
+            // Add separator line between applications (but not after the last one)
+            if (appIndex < data.applications.length - 1) {
+                tooltipContent += `<div style="border-bottom: 1px solid #e9ecef; margin: 8px 0;"></div>`;
+            }
+        });
+        
+        tooltipContent += '</div>';
+        tooltip.innerHTML = tooltipContent;
+        
+        // Position tooltip
+        document.body.appendChild(tooltip);
+        const rect = element.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        
+        // Always show tooltip above the element
+        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
+        tooltip.style.left = `${rect.left}px`;
+        
+        // Adjust if tooltip goes off screen horizontally
+        if (tooltipRect.right > window.innerWidth) {
+            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        }
+    }, 500); // 500ms delay for text selection
+}
+
+function scheduleHideProtectionPlanAppsTooltip() {
+    // Clear any existing show timeout
+    if (protectionPlanAppsTooltipTimeout) {
+        clearTimeout(protectionPlanAppsTooltipTimeout);
+        protectionPlanAppsTooltipTimeout = null;
+    }
+    
+    // Schedule hiding the tooltip after a short delay
+    hideProtectionPlanAppsTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('protection-plan-apps-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200); // 200ms delay before hiding
+}
+
+function hideProtectionPlanAppsTooltip() {
+    if (protectionPlanAppsTooltipTimeout) {
+        clearTimeout(protectionPlanAppsTooltipTimeout);
+        protectionPlanAppsTooltipTimeout = null;
+    }
+    if (hideProtectionPlanAppsTooltipTimeout) {
+        clearTimeout(hideProtectionPlanAppsTooltipTimeout);
+        hideProtectionPlanAppsTooltipTimeout = null;
+    }
+    
+    const tooltip = document.getElementById('protection-plan-apps-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
 function renderSnapshots(data, container) {
     // Sort snapshots by creation time (newest first)
     const sortedData = [...data].sort((a, b) => {
@@ -1184,16 +1329,24 @@ function renderProtectionPlans(data, container) {
                         const planSchedule = plan.schedule || 'Not set';
                         const planRetention = plan.retention || 'Not set';
                         const planLastExecution = plan.lastExecution || 'Never';
+                        const planTimezone = plan.timezone || 'UTC';
                         const isDeleting = plan.isDeleting || false;
                         const hasFinalizers = plan.hasFinalizers || false;
                         
-                        // Format selection mode display
+                        // Format selection mode display with tooltip
                         const selectionMode = plan.selectionMode || 'by-name';
                         let selectionDisplay = '';
                         if (selectionMode === 'by-label' && plan.labelSelectorKey && plan.labelSelectorValue) {
-                            selectionDisplay = `<span title="Label-based selection">🏷️ ${escapeHtml(plan.labelSelectorKey)}=${escapeHtml(plan.labelSelectorValue)}</span>`;
+                            selectionDisplay = `<span 
+                                onmouseenter="showProtectionPlanAppsTooltip(this, '${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')"
+                                onmouseleave="scheduleHideProtectionPlanAppsTooltip()"
+                                style="cursor: pointer; position: relative;">🏷️ ${escapeHtml(plan.labelSelectorKey)}=${escapeHtml(plan.labelSelectorValue)}</span>`;    
+                        
                         } else {
-                            selectionDisplay = '<span title="Application name selection">📝 By Name</span>';
+                            selectionDisplay = `<span 
+                                onmouseenter="showProtectionPlanAppsTooltip(this, '${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')"
+                                onmouseleave="scheduleHideProtectionPlanAppsTooltip()"
+                                style="cursor: pointer; position: relative;">📝 By Name</span>`;
                         }
                         
                         // Show status - if deleting, indicate it's in progress
@@ -1230,10 +1383,10 @@ function renderProtectionPlans(data, container) {
                         
                         return `
                         <tr ${isDeleting ? 'style="background-color: rgba(156, 163, 175, 0.1); opacity: 0.7;"' : ''}>
-                            <td><strong>${escapeHtml(planName)}</strong></td>
+                        <td><strong>${escapeHtml(planName)}</strong></td>
                             <td>${escapeHtml(planNamespace)}</td>
                             <td>${selectionDisplay}</td>
-                            <td>${escapeHtml(formatCronSchedule(planSchedule))}</td>
+                            <td>${escapeHtml(formatCronSchedule(planSchedule, planTimezone))}</td>
                             <td>${escapeHtml(formatRetention(planRetention))}</td>
                             <td>${displayStatus}</td>
                             <td>${formatDate(planLastExecution)}</td>
@@ -1273,9 +1426,62 @@ function formatRetention(retention) {
     return str;
 }
 
-function formatCronSchedule(cronExpression) {
+function formatCronSchedule(cronExpression, timezone = 'UTC') {
     if (!cronExpression || cronExpression === 'Not set') return 'Not set';
     
+    // Helper function to format timezone display
+    const formatTimezone = (tz) => {
+        if (tz === 'UTC') return 'UTC';
+        // Convert "America/New_York" to "EDT/EST", etc.
+        const tzMap = {
+            'America/New_York': 'EDT/EST',
+            'America/Los_Angeles': 'PDT/PST',
+            'America/Chicago': 'CDT/CST',
+            'America/Denver': 'MDT/MST'
+        };
+        return tzMap[tz] || tz.split('/')[1]?.replace('_', ' ') || tz;
+    };
+
+    // Helper function to convert UTC time to local timezone
+    const convertFromUTC = (utcHour, utcMinute, tz) => {
+        if (tz === 'UTC') {
+            return { hour: utcHour, minute: utcMinute };
+        }
+        
+        // Get timezone offset in minutes (negative because we're converting FROM UTC)
+        let offsetMinutes = 0;
+        switch (tz) {
+            case 'America/New_York': // EDT/EST
+                offsetMinutes = -4 * 60; // EDT is UTC-4
+                break;
+            case 'America/Los_Angeles': // PDT/PST
+                offsetMinutes = -7 * 60; // PDT is UTC-7
+                break;
+            case 'America/Chicago': // CDT/CST
+                offsetMinutes = -5 * 60; // CDT is UTC-5
+                break;
+            case 'America/Denver': // MDT/MST
+                offsetMinutes = -6 * 60; // MDT is UTC-6
+                break;
+            default:
+                offsetMinutes = 0;
+        }
+        
+        // Convert from UTC to local time
+        let localHour = utcHour + Math.floor(offsetMinutes / 60);
+        let localMinute = utcMinute;
+        
+        // Handle day boundary crossing
+        if (localHour < 0) {
+            localHour += 24;
+        } else if (localHour >= 24) {
+            localHour -= 24;
+        }
+        
+        return { hour: localHour, minute: localMinute };
+    };    
+
+    const tzDisplay = formatTimezone(timezone);    
     // Parse cron expression: minute hour day month weekday
     const parts = cronExpression.trim().split(/\s+/);
     if (parts.length < 5) return cronExpression; // Invalid cron, return as-is
@@ -1287,62 +1493,82 @@ function formatCronSchedule(cronExpression) {
     if (hour.startsWith('*/') && day === '*' && month === '*' && weekday === '*') {
         const hours = hour.substring(2);
         if (minute === '0') {
-            return `Every ${hours} hours`;
+            return `Every ${hours} hours (${tzDisplay})`;
         } else {
-            return `Every ${hours} hours at :${minute.padStart(2, '0')}`;
+            return `Every ${hours} hours at :${minute.padStart(2, '0')} (${tzDisplay})`;
         }
     }
     
     // Hourly: "0 * * * *" -> "Every hour"
     if (minute !== '*' && hour === '*' && day === '*' && month === '*' && weekday === '*') {
         if (minute === '0') {
-            return 'Every hour';
+            return `Every hour (${tzDisplay})`;
         } else {
-            return `Every hour at :${minute.padStart(2, '0')}`;
+            return `Every hour at :${minute.padStart(2, '0')} (${tzDisplay})`;
         }
     }
     
     // Common patterns
-    // Daily at specific time: "0 2 * * *" -> "Daily at 2:00 AM"
+    // Daily at specific time: "0 2 * * *" -> "Daily at 2:00 AM UTC"
     if (day === '*' && month === '*' && weekday === '*' && !hour.includes('*') && !hour.includes('/')) {
-        const hourNum = parseInt(hour);
-        const minuteNum = parseInt(minute);
-        const period = hourNum >= 12 ? 'PM' : 'AM';
-        const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-        const displayMinute = minuteNum.toString().padStart(2, '0');
-        return `Daily at ${displayHour}:${displayMinute} ${period}`;
+        const utcHour = parseInt(hour);
+        const utcMinute = parseInt(minute);
+        
+        // Convert from UTC to local timezone
+        const local = convertFromUTC(utcHour, utcMinute, timezone);
+        const localHour = local.hour;
+        const localMinute = local.minute;
+        
+        const period = localHour >= 12 ? 'PM' : 'AM';
+        const displayHour = localHour === 0 ? 12 : localHour > 12 ? localHour - 12 : localHour;
+        const displayMinute = localMinute.toString().padStart(2, '0');
+
+        return `Daily at ${displayHour}:${displayMinute} ${period} ${tzDisplay}`;
     }
     
-    // Weekly on specific day: "0 2 * * 0" -> "Weekly on Sunday at 2:00 AM"
+    // Weekly on specific day: "0 2 * * 0" -> "Weekly on Sunday at 2:00 AM UTC"
     if (day === '*' && month === '*' && weekday !== '*') {
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayName = days[parseInt(weekday)] || `day ${weekday}`;
-        const hourNum = parseInt(hour);
-        const minuteNum = parseInt(minute);
-        const period = hourNum >= 12 ? 'PM' : 'AM';
-        const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-        const displayMinute = minuteNum.toString().padStart(2, '0');
-        return `Weekly on ${dayName} at ${displayHour}:${displayMinute} ${period}`;
+        const utcHour = parseInt(hour);
+        const utcMinute = parseInt(minute);
+        
+        // Convert from UTC to local timezone
+        const local = convertFromUTC(utcHour, utcMinute, timezone);
+        const localHour = local.hour;
+        const localMinute = local.minute;
+        
+        const period = localHour >= 12 ? 'PM' : 'AM';
+        const displayHour = localHour === 0 ? 12 : localHour > 12 ? localHour - 12 : localHour;
+        const displayMinute = localMinute.toString().padStart(2, '0');
+        return `Weekly on ${dayName} at ${displayHour}:${displayMinute} ${period} ${tzDisplay}`;
     }
     
-    // Monthly on specific day: "0 2 15 * *" -> "Monthly on day 15 at 2:00 AM"
+    // Monthly on specific day: "0 2 15 * *" -> "Monthly on day 15 at 2:00 AM UTC"
     if (day !== '*' && month === '*' && weekday === '*' && !hour.includes('*') && !hour.includes('/')) {
-        const hourNum = parseInt(hour);
-        const minuteNum = parseInt(minute);
-        const period = hourNum >= 12 ? 'PM' : 'AM';
-        const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
-        const displayMinute = minuteNum.toString().padStart(2, '0');
-        return `Monthly on day ${day} at ${displayHour}:${displayMinute} ${period}`;
+        const utcHour = parseInt(hour);
+        const utcMinute = parseInt(minute);
+        
+        // Convert from UTC to local timezone
+        const local = convertFromUTC(utcHour, utcMinute, timezone);
+        const localHour = local.hour;
+        const localMinute = local.minute;
+        
+        const period = localHour >= 12 ? 'PM' : 'AM';
+        const displayHour = localHour === 0 ? 12 : localHour > 12 ? localHour - 12 : localHour;
+        const displayMinute = localMinute.toString().padStart(2, '0');
+
+        return `Monthly on day ${day} at ${displayHour}:${displayMinute} ${period} ${tzDisplay}`;
     }
     
     // Every X minutes: "*/15 * * * *" -> "Every 15 minutes"
     if (minute.startsWith('*/') && hour === '*' && day === '*' && month === '*' && weekday === '*') {
         const minutes = minute.substring(2);
-        return `Every ${minutes} minutes`;
+        return `Every ${minutes} minutes (${tzDisplay})`;
     }
     
-    // If we can't parse it nicely, return the original
-    return cronExpression;
+    // If we can't parse it nicely, return the original with timezone
+    return `${cronExpression} (${tzDisplay})`;
 }
 
 // Utility Functions
@@ -1589,7 +1815,7 @@ function clearSnapshotSelection() {
     updateSnapshotSelection();
 }
 
-async function deleteBulkSnapshots() {
+function deleteBulkSnapshots() {
     const checkboxes = document.querySelectorAll('.snapshot-checkbox:checked');
     const snapshots = Array.from(checkboxes).map(cb => ({
         name: cb.dataset.name,
@@ -1601,10 +1827,32 @@ async function deleteBulkSnapshots() {
         return;
     }
     
-    if (!confirm(`Are you sure you want to delete ${snapshots.length} snapshot(s)?\n\nThis action cannot be undone.`)) {
-        return;
-    }
+    // Store snapshots in window object for access in confirmation function
+    window.snapshotsToDelete = snapshots;
     
+    // Update modal with count
+    document.getElementById('bulk-delete-count').textContent = `${snapshots.length} snapshot(s) will be deleted`;
+    
+    // Show modal
+    document.getElementById('bulk-delete-snapshots-modal').style.display = 'flex';
+}
+
+function closeBulkDeleteSnapshotsModal() {
+    document.getElementById('bulk-delete-snapshots-modal').style.display = 'none';
+    window.snapshotsToDelete = null;
+}
+
+async function confirmBulkDeleteSnapshots() {
+    const snapshots = window.snapshotsToDelete;
+    
+    if (!snapshots || snapshots.length === 0) {
+        closeBulkDeleteSnapshotsModal();
+         return;
+     }
+
+    // Close modal
+    closeBulkDeleteSnapshotsModal();
+
     let successCount = 0;
     let failCount = 0;
     
@@ -1668,6 +1916,8 @@ async function showRestoreModal(snapshotName, namespace, appName) {
     document.getElementById('restore-app-name-hidden').value = appName;
     document.getElementById('restore-name').value = `${appName}-restore-${Date.now()}`;
     
+    // Clear the new app name field (for cloning)
+    document.getElementById('restore-new-app-name').value = '';
     
     // Load namespaces for the dropdown
     await loadRestoreNamespaces(namespace);
@@ -1676,7 +1926,8 @@ async function showRestoreModal(snapshotName, namespace, appName) {
 }
 
 async function loadRestoreNamespaces(defaultNamespace) {
-    const namespaceSelect = document.getElementById('restore-target-namespace');
+    const namespaceSelect = document.getElementById('restore-target-namespace-select');
+    const namespaceInput = document.getElementById('restore-target-namespace');
     
     try {
         // Show loading state
@@ -1705,14 +1956,40 @@ async function loadRestoreNamespaces(defaultNamespace) {
             namespaceSelect.appendChild(option);
         });
         
+        // Add "Create New Namespace..." option at the end
+        const customOption = document.createElement('option');
+        customOption.value = '__custom__';
+        customOption.textContent = 'Create New Namespace...';
+        namespaceSelect.appendChild(customOption);
+        
         // Set default namespace
         if (defaultNamespace && namespaces.includes(defaultNamespace)) {
             namespaceSelect.value = defaultNamespace;
         }
+        
+        // Reset the custom input field
+        namespaceInput.style.display = 'none';
+        namespaceInput.value = '';
+        namespaceInput.required = false;
     } catch (error) {
         console.error('Error loading namespaces:', error);
         namespaceSelect.innerHTML = '<option value="">Error loading namespaces</option>';
         showToast('✗ Failed to load namespaces', 'error');
+    }
+}
+
+function handleRestoreNamespaceChange() {
+    const select = document.getElementById('restore-target-namespace-select');
+    const input = document.getElementById('restore-target-namespace');
+    
+    if (select.value === '__custom__') {
+        input.style.display = 'block';
+        input.required = true;
+        input.value = '';
+        input.focus();
+    } else {
+        input.style.display = 'none';
+        input.required = false;
     }
 }
 
@@ -1727,15 +2004,28 @@ async function restoreSnapshot() {
     const snapshotName = document.getElementById('restore-snapshot-name-hidden').value;
     const namespace = document.getElementById('restore-namespace-hidden').value;
     const restoreName = document.getElementById('restore-name').value;
-    const targetNamespace = document.getElementById('restore-target-namespace').value;
-    const appName = document.getElementById('restore-app-name-hidden').value;
+    
+    // Get target namespace from either the select or custom input
+    const namespaceSelect = document.getElementById('restore-target-namespace-select');
+    const namespaceInput = document.getElementById('restore-target-namespace');
+    const targetNamespace = namespaceSelect.value === '__custom__' ? namespaceInput.value.trim() : namespaceSelect.value;
+    
+    const originalAppName = document.getElementById('restore-app-name-hidden').value;
+    const newAppName = document.getElementById('restore-new-app-name').value.trim();
+    
+    // Determine the final app name (new name if provided, otherwise original)
+    const finalAppName = newAppName || originalAppName;
+    const isClone = newAppName && newAppName !== originalAppName;
     
     console.log('Restore snapshot values:', {
         snapshotName,
         namespace,
         restoreName,
         targetNamespace,
-        appName
+        originalAppName,
+        newAppName,
+        finalAppName,
+        isClone
     });
     
     if (!restoreName) {
@@ -1748,23 +2038,59 @@ async function restoreSnapshot() {
         return;
     }
     
+    // Validate namespace name format if custom namespace
+    if (namespaceSelect.value === '__custom__') {
+        const k8sNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+        if (!k8sNameRegex.test(targetNamespace)) {
+            showToast('✗ Invalid namespace name: Must be lowercase alphanumeric with hyphens (e.g., my-namespace)', 'error');
+            return;
+        }
+    }
+    
     // Validate application name
-    if (!appName || appName === 'Unknown') {
+    if (!originalAppName || originalAppName === 'Unknown') {
         showToast('✗ Cannot restore: Application name is missing or unknown in snapshot', 'error');
         return;
     }
     
-    // Validation: Check if application exists - NDK requires it to be deleted first
+    // Validate new app name format if provided
+    if (newAppName) {
+        const k8sNameRegex = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+        if (!k8sNameRegex.test(newAppName)) {
+            showToast('✗ Invalid app name: Must be lowercase alphanumeric with hyphens (e.g., my-app-clone)', 'error');
+            return;
+        }
+    }
+    
+    // IMPORTANT: Check if cloning to same namespace as original app
+    // NDK cannot restore resources that already exist (same resource names)
+    if (isClone && targetNamespace === namespace) {
+        try {
+            const checkOriginalResponse = await fetch(`/api/applications/${namespace}/${originalAppName}`);
+            if (checkOriginalResponse.ok) {
+                showToast(`⚠️ Cannot clone to the same namespace: The original application "${originalAppName}" exists in ${namespace}. Clone to a different namespace to avoid resource conflicts.`, 'error');
+                return;
+            }
+        } catch (error) {
+            console.error('Error checking original application:', error);
+        }
+    }    
+
+    // Validation: Check if target application name already exists
     try {
-            const checkResponse = await fetch(`/api/applications/${targetNamespace}/${appName}`);
+            const checkResponse = await fetch(`/api/applications/${targetNamespace}/${finalAppName}`);
             
             if (checkResponse.ok) {
-                // Application exists - show error
-                showToast('⚠️ Cannot restore: Application still exists. Please delete it first.', 'error');
+                // Application exists
+                if (isClone) {
+                    showToast(`⚠️ Cannot clone: Application "${finalAppName}" already exists in ${targetNamespace}. Choose a different name.`, 'error');
+                } else {
+                    showToast('⚠️ Cannot restore: Application still exists. Please delete it first or provide a new name to clone.', 'error');
+                }
                 return;
             } else if (checkResponse.status === 404) {
                 // Application doesn't exist - good to proceed
-                console.log('Application does not exist, proceeding with restore');
+                console.log(`Application "${finalAppName}" does not exist, proceeding with ${isClone ? 'clone' : 'restore'}`);
             } else if (checkResponse.redirected || checkResponse.url.includes('/login')) {
                 window.location.href = '/login';
                 return;
@@ -1778,15 +2104,22 @@ async function restoreSnapshot() {
     closeRestoreModal();
     
     try {
+        const requestBody = {
+            restoreName: restoreName,
+            targetNamespace: targetNamespace
+        };
+        
+        // Add newAppName only if provided (for cloning)
+        if (newAppName) {
+            requestBody.newAppName = newAppName;
+        }
+        
         const response = await fetch(`/api/snapshots/${namespace}/${snapshotName}/restore`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                restoreName: restoreName,
-                targetNamespace: targetNamespace
-            })
+            body: JSON.stringify(requestBody)
         });
         
         // Check if we got redirected to login
@@ -1798,19 +2131,21 @@ async function restoreSnapshot() {
         
         if (!response.ok) {
             const result = await response.json();
-            showToast(`✗ Failed to restore snapshot: ${result.error}`, 'error');
+            showToast(`✗ Failed to ${isClone ? 'clone' : 'restore'} snapshot: ${result.error}`, 'error');
             return;
         }
         
         const result = await response.json();
-        console.log('Restore initiated:', result);
+        console.log(`${isClone ? 'Clone' : 'Restore'} initiated:`, result);
         
-        // Extract the restored application name from the response
-        const restoredAppName = result?.application?.name || appName;
-        const displayName = restoredAppName || result?.message || 'restore operation';
-        showToast(`✓ Restore initiated: ${displayName}`, 'success');
+        // Extract the restored/cloned application name from the response
+        const restoredAppName = result?.application?.name || finalAppName;
+        const action = result?.application?.is_clone ? 'cloned' : 'restored';
+        const displayMessage = result?.message || `Application ${action} as ${restoredAppName}`;
         
-        // Show progress modal and start tracking with the RESTORED app name
+        showToast(`✓ ${displayMessage}`, 'success');
+        
+        // Show progress modal and start tracking with the RESTORED/CLONED app name
         showRestoreProgressModal(targetNamespace, restoredAppName, snapshotName);
     } catch (error) {
         console.error('Error restoring snapshot:', error);
@@ -2086,11 +2421,18 @@ async function showCreatePlanModal() {
     document.getElementById('plan-name').value = '';
     document.getElementById('plan-namespace').value = 'default';
     document.getElementById('plan-schedule-type').value = 'preset';
-    document.getElementById('plan-schedule-preset').value = '0 2 * * *';
+    document.getElementById('plan-schedule-preset').value = 'daily';
+    document.getElementById('plan-schedule-time').value = '02:00';
+    document.getElementById('plan-schedule-timezone').value = 'America/New_York'; // Default to EDT/EST
+    document.getElementById('plan-schedule-weekday').value = '0';
+    document.getElementById('plan-schedule-monthday').value = '1';        
     document.getElementById('plan-schedule-custom').value = '';
     document.getElementById('plan-retention-count').value = '7';
     document.getElementById('plan-enabled').checked = true;
     
+    // Update UTC preview
+    updateUTCPreview();
+
     // Reset selection mode to by-name
     document.querySelector('input[name="plan-selection-mode"][value="by-name"]').checked = true;
     
@@ -2289,17 +2631,151 @@ function updateScheduleInput() {
     const scheduleType = document.getElementById('plan-schedule-type').value;
     const presetGroup = document.getElementById('plan-schedule-preset-group');
     const customGroup = document.getElementById('plan-schedule-custom-group');
+    const timeGroup = document.getElementById('plan-schedule-time-group');
+    const weekdayGroup = document.getElementById('plan-schedule-weekday-group');
+    const monthdayGroup = document.getElementById('plan-schedule-monthday-group');
     
     if (scheduleType === 'preset') {
         presetGroup.style.display = 'block';
         customGroup.style.display = 'none';
+        updateScheduleTimeInput(); // Update time/day inputs based on frequency
+
     } else {
+        // Hide all preset-related groups when using custom cron
         presetGroup.style.display = 'none';
         customGroup.style.display = 'block';
+        timeGroup.style.display = 'none';
+        weekdayGroup.style.display = 'none';
+        monthdayGroup.style.display = 'none';
     }
 }
 
+function updateScheduleTimeInput() {
+    const frequency = document.getElementById('plan-schedule-preset').value;
+    const timeGroup = document.getElementById('plan-schedule-time-group');
+    const weekdayGroup = document.getElementById('plan-schedule-weekday-group');
+    const monthdayGroup = document.getElementById('plan-schedule-monthday-group');
+    const helpText = document.getElementById('plan-schedule-help');
+    
+    // Hide all by default
+    timeGroup.style.display = 'none';
+    weekdayGroup.style.display = 'none';
+    monthdayGroup.style.display = 'none';
+    
+    // Show relevant inputs based on frequency
+    if (frequency === 'daily' || frequency === 'weekdays') {
+        timeGroup.style.display = 'block';
+        helpText.textContent = frequency === 'daily' ? 'Runs every day at the specified time' : 'Runs Monday-Friday at the specified time';
+    } else if (frequency === 'weekly') {
+        timeGroup.style.display = 'block';
+        weekdayGroup.style.display = 'block';
+        helpText.textContent = 'Runs once per week on the selected day';
+    } else if (frequency === 'monthly') {
+        timeGroup.style.display = 'block';
+        monthdayGroup.style.display = 'block';
+        helpText.textContent = 'Runs once per month on the selected day';
+    } else if (frequency === 'hourly') {
+        helpText.textContent = 'Runs at the start of every hour';
+    } else if (frequency === 'every-6h') {
+        helpText.textContent = 'Runs every 6 hours (at 00:00, 06:00, 12:00, 18:00)';
+    } else if (frequency === 'every-12h') {
+        helpText.textContent = 'Runs every 12 hours (at 00:00 and 12:00)';
+    }
+}
 
+function buildCronSchedule() {
+    const scheduleType = document.getElementById('plan-schedule-type').value;
+    
+    if (scheduleType === 'custom') {
+        return document.getElementById('plan-schedule-custom').value;
+    }
+    
+    const frequency = document.getElementById('plan-schedule-preset').value;
+    const time = document.getElementById('plan-schedule-time').value; // HH:MM format
+    const timezone = document.getElementById('plan-schedule-timezone').value;
+    
+    // Convert local time to UTC
+    const utcTime = convertToUTC(time, timezone);
+    const [hour, minute] = utcTime ? utcTime.split(':') : ['0', '0'];
+    
+    switch (frequency) {
+        case 'hourly':
+            return '0 * * * *';
+        case 'daily':
+            return `${minute} ${hour} * * *`;
+        case 'weekly':
+            const weekday = document.getElementById('plan-schedule-weekday').value;
+            return `${minute} ${hour} * * ${weekday}`;
+        case 'weekdays':
+            return `${minute} ${hour} * * 1-5`;
+        case 'every-6h':
+            return '0 */6 * * *';
+        case 'every-12h':
+            return '0 */12 * * *';
+        case 'monthly':
+            const monthday = document.getElementById('plan-schedule-monthday').value;
+            return `${minute} ${hour} ${monthday} * *`;
+        default:
+            return '0 2 * * *'; // Default: daily at 2 AM
+    }
+}
+
+// Convert local time to UTC based on timezone
+function convertToUTC(localTime, timezone) {
+    if (!localTime) return '00:00';
+    
+    // If already UTC, return as-is
+    if (timezone === 'UTC') {
+        return localTime;
+    }
+    
+    const [hour, minute] = localTime.split(':').map(Number);
+    
+    // Get timezone offset in minutes
+    let offsetMinutes = 0;
+    switch (timezone) {
+        case 'America/New_York': // EDT/EST
+            // EDT is UTC-4, EST is UTC-5
+            // Using -4 for EDT (current season)
+            offsetMinutes = 4 * 60;
+            break;
+        case 'America/Los_Angeles': // PDT/PST
+            offsetMinutes = 7 * 60;
+            break;
+        case 'America/Chicago': // CDT/CST
+            offsetMinutes = 5 * 60;
+            break;
+        case 'America/Denver': // MDT/MST
+            offsetMinutes = 6 * 60;
+            break;
+        default:
+            offsetMinutes = 0;
+    }
+    
+    // Convert to UTC
+    const utcHour = (hour + Math.floor(offsetMinutes / 60)) % 24;
+    const utcMinute = minute;
+    
+    return `${String(utcHour).padStart(2, '0')}:${String(utcMinute).padStart(2, '0')}`;
+}
+
+// Update UTC preview when time or timezone changes
+function updateUTCPreview() {
+    const time = document.getElementById('plan-schedule-time').value;
+    const timezone = document.getElementById('plan-schedule-timezone').value;
+    const utcDisplay = document.getElementById('utc-time-display');
+    
+    if (!time || !utcDisplay) return;
+    
+    const utcTime = convertToUTC(time, timezone);
+    
+    if (timezone === 'UTC') {
+        utcDisplay.textContent = `${utcTime} UTC (no conversion needed)`;
+    } else {
+        const tzName = timezone.split('/')[1].replace('_', ' ');
+        utcDisplay.textContent = `${utcTime} UTC (from ${time} ${tzName})`;
+    }
+}
 
 function updateRetentionInput() {
     // No longer needed - retention is always count-based (NDK requirement)
@@ -2547,29 +3023,46 @@ async function savePlan() {
         return;
     }
     
-    // Get schedule
-    const scheduleType = document.getElementById('plan-schedule-type').value;
-    const schedule = scheduleType === 'preset' 
-        ? document.getElementById('plan-schedule-preset').value
-        : document.getElementById('plan-schedule-custom').value.trim();
-    
+    // Get schedule using buildCronSchedule function
+    const schedule = buildCronSchedule();
+
     if (!schedule) {
         showToast('✗ Schedule is required', 'error');
         return;
     }
     
-    // Get retention (count-based only, as NDK requires)
-    const retention = parseInt(document.getElementById('plan-retention-count').value);
     
-    if (!retention || retention < 1 || retention > 15) {
-        showToast('✗ Retention count must be between 1 and 15', 'error');
-        return;
+    // Get retention - support both count and time-based
+    const retentionType = document.getElementById('plan-retention-type').value;
+    let retention;
+    
+    if (retentionType === 'count') {
+        // Use retention count
+        retention = parseInt(document.getElementById('plan-retention-count').value);
+        
+        // Validate retention count (NDK requires 1-15)
+        if (isNaN(retention) || retention < 1 || retention > 15) {
+            showToast('✗ Retention count must be between 1 and 15', 'error');
+            return;
+        }
+    } else {
+        // Use expiration time (maxAge)
+        retention = document.getElementById('plan-retention-expiration').value;
+        
+        if (!retention) {
+            showToast('✗ Please select an expiration time', 'error');
+            return;
+        }
     }
+    
     
     // Get selection mode
     const selectionMode = document.querySelector('input[name="plan-selection-mode"]:checked').value;
     
     const enabled = document.getElementById('plan-enabled').checked;
+
+    // Get the timezone that was used for scheduling
+    const timezone = document.getElementById('plan-schedule-timezone').value;
     
     const planData = {
         name: name,
@@ -2577,7 +3070,8 @@ async function savePlan() {
         schedule: schedule,
         retention: retention,
         enabled: enabled,
-        selectionMode: selectionMode
+        selectionMode: selectionMode,
+        timezone: timezone  // Store the timezone for display purposes
     };
     
     // Handle different selection modes
@@ -3141,19 +3635,6 @@ function showDeployModal(appType) {
     document.getElementById('deploy-database-group').style.display = 
         template.hasDatabase ? 'block' : 'none';
     
-    // Reset form
-    document.getElementById('deploy-name').value = '';
-    document.getElementById('deploy-namespace-select').value = 'default';
-    document.getElementById('deploy-namespace').value = 'default';
-    document.getElementById('deploy-namespace').style.display = 'none';
-    document.getElementById('deploy-replicas').value = '1';
-    document.getElementById('deploy-storage-size').value = '10Gi';
-    document.getElementById('deploy-password').value = '';
-    document.getElementById('deploy-database').value = '';
-    document.getElementById('deploy-create-ndk-app').checked = true;
-    document.getElementById('deploy-create-protection-plan').checked = false;
-    document.getElementById('deploy-protection-config').style.display = 'none';
-    
     // Reset labels
     document.getElementById('deploy-labels-container').innerHTML = '';
     
@@ -3447,6 +3928,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
+// Toggle between retention count and expiration time
+function toggleProtectionRetentionType() {
+    const retentionType = document.getElementById('deploy-protection-retention-type').value;
+    const countGroup = document.getElementById('deploy-protection-retention-count-group');
+    const timeGroup = document.getElementById('deploy-protection-retention-time-group');
+    
+    if (retentionType === 'count') {
+        countGroup.style.display = 'block';
+        timeGroup.style.display = 'none';
+    } else {
+        countGroup.style.display = 'none';
+        timeGroup.style.display = 'block';
+    }
+}
+
+// Toggle between retention count and expiration time (for protection plan modal)
+function togglePlanRetentionType() {
+    const retentionType = document.getElementById('plan-retention-type').value;
+    const countGroup = document.getElementById('plan-retention-count-group');
+    const timeGroup = document.getElementById('plan-retention-time-group');
+    
+    if (retentionType === 'count') {
+        countGroup.style.display = 'block';
+        timeGroup.style.display = 'none';
+    } else {
+        countGroup.style.display = 'none';
+        timeGroup.style.display = 'block';
+    }
+}
 async function deployApplication() {
     const appType = document.getElementById('deploy-app-type').value;
     const name = document.getElementById('deploy-name').value.trim();
@@ -3508,12 +4019,21 @@ async function deployApplication() {
     
     // Add protection plan config if enabled
     if (createProtectionPlan) {
-        const retention = parseInt(document.getElementById('deploy-protection-retention').value);
+        const retentionType = document.getElementById('deploy-protection-retention-type').value;
+        let retention;
         
-        // Validate retention count (NDK requires 1-15)
-        if (isNaN(retention) || retention < 1 || retention > 15) {
-            alert('Retention count must be a number between 1 and 15');
-            return;
+        if (retentionType === 'count') {
+            // Use retention count
+            retention = parseInt(document.getElementById('deploy-protection-retention').value);
+            
+            // Validate retention count (NDK requires 1-15)
+            if (isNaN(retention) || retention < 1 || retention > 15) {
+                alert('Retention count must be a number between 1 and 15');
+                return;
+            }
+        } else {
+            // Use expiration time (maxAge)
+            retention = document.getElementById('deploy-protection-expiration').value;
         }
         
         deployConfig.protectionPlan = {

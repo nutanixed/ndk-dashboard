@@ -479,6 +479,18 @@ body {
     background-color: var(--hover-overlay);
 }
 
+/* Application Name Column - Wider and No Wrap */
+.data-table td:nth-child(2) {
+    white-space: nowrap;
+    min-width: 120px;
+    max-width: 180px;
+}
+
+.data-table td:nth-child(2) strong {
+    display: inline-block;
+    white-space: nowrap;
+}
+
 /* Table Code/UUID Elements */
 .data-table code,
 .data-table .code {

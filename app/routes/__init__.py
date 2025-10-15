@@ -8,6 +8,7 @@ from .snapshots import snapshots_bp
 from .storage import storage_bp
 from .protectionplans import protectionplans_bp
 from .deployment import deployment_bp
+from .restores import restores_bp
 
 __all__ = [
     'main_bp',
@@ -16,5 +17,6 @@ __all__ = [
     'snapshots_bp',
     'storage_bp',
     'protectionplans_bp',
-    'deployment_bp'
+    'deployment_bp',
+    'restores_bp'
 ]

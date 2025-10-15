@@ -23,7 +23,7 @@ def create_app(config_class=Config):
     # Register blueprints
     from app.routes import (
         main_bp, auth_bp, applications_bp, snapshots_bp,
-        storage_bp, protectionplans_bp, deployment_bp
+        storage_bp, protectionplans_bp, deployment_bp, restores_bp
     )
     
     app.register_blueprint(main_bp)
@@ -33,5 +33,6 @@ def create_app(config_class=Config):
     app.register_blueprint(storage_bp, url_prefix='/api')
     app.register_blueprint(protectionplans_bp, url_prefix='/api')
     app.register_blueprint(deployment_bp, url_prefix='/api')
+    app.register_blueprint(restores_bp, url_prefix='/api')
     
     return app

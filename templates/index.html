@@ -335,30 +335,44 @@
                     <p style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #5b21b6;" id="restore-snapshot-name"></p>
                 </div>
                 
-                <div style="font-size: 0.875rem; color: #92400e; margin-bottom: 24px; padding: 14px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; border-left: 3px solid #f59e0b;">
+                <div style="font-size: 0.875rem; color: #0369a1; margin-bottom: 24px; padding: 14px; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 8px; border-left: 3px solid #0284c7;">
                     <strong style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2">
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-                            <line x1="12" y1="9" x2="12" y2="13"></line>
-                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
                         </svg>
-                        Important
+                        Clone or Restore
                     </strong>
-                    The original application must be deleted first. NDK will recreate all resources from the snapshot.
+                    <strong>Clone:</strong> Provide a new app name to create a copy. <span style="color: #dc2626;">⚠️ Must clone to a different namespace to avoid resource conflicts.</span><br>
+                    <strong>Restore:</strong> Leave app name empty to restore with original name (requires deleting the original first).
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="restore-new-app-name" style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;">
+                        New Application Name: 
+                        <span style="font-weight: 400; color: #6b7280; font-size: 0.875rem;">(Optional - for cloning)</span>
+                    </label>
+                    <input type="text" id="restore-new-app-name" class="form-control" placeholder="Leave empty to use original name" style="font-size: 1rem; padding: 10px;">
+                    <small class="form-help" style="display: block; margin-top: 6px;">
+                        💡 <strong>Tip:</strong> Enter a new name to clone the app without deleting the original
+                    </small>
                 </div>
                 
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label for="restore-name" style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;">Restore Operation Name: <span class="required">*</span></label>
                     <input type="text" id="restore-name" class="form-control" placeholder="Enter restore operation name" required style="font-size: 1rem; padding: 10px;">
-                    <small class="form-help" style="display: block; margin-top: 6px;">Name for the restore operation (not the application name)</small>
+                    <small class="form-help" style="display: block; margin-top: 6px;">Internal name for tracking the restore operation</small>
                 </div>
                 
                 <div class="form-group">
                     <label for="restore-target-namespace" style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px; display: block;">Target Namespace: <span class="required">*</span></label>
-                    <select id="restore-target-namespace" class="form-control" required style="font-size: 1rem; padding: 10px;">
+                    <select id="restore-target-namespace-select" class="form-control" onchange="handleRestoreNamespaceChange()" required style="font-size: 1rem; padding: 10px;">
                         <option value="">Loading namespaces...</option>
+                        <option value="__custom__">Create New Namespace...</option>
                     </select>
-                    <small class="form-help" style="display: block; margin-top: 6px;">Namespace where the application will be restored</small>
+                    <input type="text" id="restore-target-namespace" class="form-control" placeholder="Enter new namespace name" style="display: none; margin-top: 8px; font-size: 1rem; padding: 10px;" required>
+                    <small class="form-help" style="display: block; margin-top: 6px;">Select existing or create new (will be created if it doesn't exist)</small>
                 </div>
                 
                 <input type="hidden" id="restore-snapshot-name-hidden">
@@ -540,16 +554,56 @@
                 </div>
                 
                 <div class="form-group" id="plan-schedule-preset-group">
-                    <label for="plan-schedule-preset">Schedule: <span class="required">*</span></label>
-                    <select id="plan-schedule-preset" class="form-control">
-                        <option value="0 * * * *">Hourly</option>
-                        <option value="0 2 * * *">Daily at 2:00 AM</option>
-                        <option value="0 3 * * 0">Weekly on Sunday at 3:00 AM</option>
-                        <option value="0 4 1 * *">Monthly on 1st at 4:00 AM</option>
-                        <option value="0 */6 * * *">Every 6 hours</option>
-                        <option value="0 */12 * * *">Every 12 hours</option>
-                        <option value="0 1 * * 1-5">Weekdays at 1:00 AM</option>
+                    <label for="plan-schedule-preset">Schedule Frequency: <span class="required">*</span></label>
+                    <select id="plan-schedule-preset" class="form-control" onchange="updateScheduleTimeInput()">
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="weekdays">Weekdays (Mon-Fri)</option>
+                        <option value="every-6h">Every 6 hours</option>
+                        <option value="every-12h">Every 12 hours</option>
+                        <option value="monthly">Monthly</option>
                     </select>
+                    <small class="form-help" id="plan-schedule-help">Runs every day at the specified time</small>
+                </div>
+                
+                <div class="form-group" id="plan-schedule-time-group">
+                    <label for="plan-schedule-time">Start Time: <span class="required">*</span></label>
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="flex: 1;">
+                            <input type="time" id="plan-schedule-time" class="form-control" value="02:00" onchange="updateUTCPreview()">
+                        </div>
+                        <div style="flex: 0 0 120px;">
+                            <select id="plan-schedule-timezone" class="form-control" onchange="updateUTCPreview()">
+                                <option value="America/New_York">EDT/EST</option>
+                                <option value="UTC">UTC</option>
+                                <option value="America/Los_Angeles">PDT/PST</option>
+                                <option value="America/Chicago">CDT/CST</option>
+                                <option value="America/Denver">MDT/MST</option>
+                            </select>
+                        </div>
+                    </div>
+                    <small class="form-help" id="schedule-time-help">Snapshots will be taken daily at this time</small>
+                    <small class="form-help" id="schedule-utc-preview" style="display: block; margin-top: 4px; color: #6366f1; font-weight: 500;">⏰ Will run at: <span id="utc-time-display">--:-- UTC</span></small>
+                </div>
+                
+                <div class="form-group" id="plan-schedule-weekday-group" style="display: none;">
+                    <label for="plan-schedule-weekday">Day of Week: <span class="required">*</span></label>
+                    <select id="plan-schedule-weekday" class="form-control">
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-schedule-monthday-group" style="display: none;">
+                    <label for="plan-schedule-monthday">Day of Month: <span class="required">*</span></label>
+                    <input type="number" id="plan-schedule-monthday" class="form-control" value="1" min="1" max="28">
+                    <small class="form-help">Day of the month (1-28)</small>
                 </div>
                 
                 <div class="form-group" id="plan-schedule-custom-group" style="display: none;">
@@ -559,9 +613,30 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="plan-retention-count">Retention (Number of Snapshots): <span class="required">*</span></label>
+                    <label for="plan-retention-type">Retention Policy: <span class="required">*</span></label>
+                    <select id="plan-retention-type" class="form-control" onchange="togglePlanRetentionType()">
+                        <option value="count">Keep a specific number of snapshots</option>
+                        <option value="time">Keep snapshots for a specific time period</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="plan-retention-count-group">
+                    <label for="plan-retention-count">Number of Snapshots: <span class="required">*</span></label>
                     <input type="number" id="plan-retention-count" class="form-control" value="7" min="1" max="15">
-                    <small class="form-help">Keep the last N snapshots (1-15). Older snapshots will be automatically deleted.</small>
+                    <small class="form-help">Number of snapshots to keep (1-15)</small>
+                </div>
+                
+                <div class="form-group" id="plan-retention-time-group" style="display: none;">
+                    <label for="plan-retention-expiration">Snapshot Expiration: <span class="required">*</span></label>
+                    <select id="plan-retention-expiration" class="form-control">
+                        <option value="24h">24 hours (1 day)</option>
+                        <option value="168h">168 hours (7 days)</option>
+                        <option value="720h" selected>720 hours (30 days)</option>
+                        <option value="2160h">2160 hours (90 days)</option>
+                        <option value="4320h">4320 hours (180 days)</option>
+                        <option value="8760h">8760 hours (1 year)</option>
+                    </select>
+                    <small class="form-help">Snapshots will be automatically deleted after this period</small>
                 </div>
                 
                 <div class="form-group">
@@ -766,8 +841,8 @@
                     
                     <div class="form-group">
                         <label for="deploy-storage-size">Storage Size:</label>
-                        <input type="text" id="deploy-storage-size" class="form-control" value="10GB" placeholder="e.g., 10GB, 50GB">
-                        <small class="form-help">Size per replica (e.g., 10GB, 50GB, 100GB)</small>
+                        <input type="text" id="deploy-storage-size" class="form-control" value="10Gi" placeholder="e.g., 10Gi, 50Gi, 100Gi">
+                        <small class="form-help">Size per replica (e.g., 10Gi, 50Gi, 100Gi)</small>
                     </div>
                 </div>
                 
@@ -837,9 +912,30 @@
                         </div>
                         
                         <div class="form-group">
-                            <label for="deploy-protection-retention">Retention:</label>
+                            <label for="deploy-protection-retention-type">Retention Policy:</label>
+                            <select id="deploy-protection-retention-type" class="form-control" onchange="toggleProtectionRetentionType()">
+                                <option value="count">Keep a specific number of snapshots</option>
+                                <option value="time">Keep snapshots for a specific time period</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="deploy-protection-retention-count-group">
+                            <label for="deploy-protection-retention">Number of Snapshots:</label>
                             <input type="number" id="deploy-protection-retention" class="form-control" value="7" min="1" max="15">
                             <small class="form-help">Number of snapshots to keep (1-15)</small>
+                        </div>
+                        
+                        <div class="form-group" id="deploy-protection-retention-time-group" style="display: none;">
+                            <label for="deploy-protection-expiration">Snapshot Expiration:</label>
+                            <select id="deploy-protection-expiration" class="form-control">
+                                <option value="24h">24 hours (1 day)</option>
+                                <option value="168h">168 hours (7 days)</option>
+                                <option value="720h" selected>720 hours (30 days)</option>
+                                <option value="2160h">2160 hours (90 days)</option>
+                                <option value="4320h">4320 hours (180 days)</option>
+                                <option value="8760h">8760 hours (1 year)</option>
+                            </select>
+                            <small class="form-help">Snapshots will be automatically deleted after this period</small>
                         </div>
                     </div>
                 </div>
@@ -1025,6 +1121,52 @@
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeDeleteSnapshotModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
                 <button class="btn btn-danger" onclick="confirmDeleteSnapshot()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Snapshot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Delete Snapshots Confirmation Modal -->
+    <div id="bulk-delete-snapshots-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Delete Multiple Snapshots</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Confirm bulk deletion</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeBulkDeleteSnapshotsModal()" aria-label="Close" style="color: white; opacity: 1; font-size: 28px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15);">✕</button>
+            </div>
+            <div class="modal-body" style="padding: 28px;">
+                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #fca5a5;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #b91c1c; font-weight: 500;">Warning</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #991b1b;">This action cannot be undone. All selected snapshots will be permanently deleted.</p>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.8125rem; color: #64748b; margin-bottom: 4px;">Number of Snapshots</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #1e293b;" id="bulk-delete-count"></div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeBulkDeleteSnapshotsModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmBulkDeleteSnapshots()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Snapshots</button>
             </div>
         </div>
     </div>

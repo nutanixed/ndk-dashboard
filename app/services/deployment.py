@@ -36,6 +36,9 @@ class DeploymentService:
             except (ValueError, TypeError):
                 raise ValueError('Retention count must be a valid number between 1 and 15')
         
+        # Normalize storage size to Kubernetes format
+        storage_size = DeploymentService._normalize_storage_size(storage_size)
+        
         # Use default storage class if not specified or set to 'default'
         if not storage_class or storage_class == 'default':
             storage_class = None
@@ -189,6 +192,52 @@ class DeploymentService:
             ]
         
         return env_vars
+    
+    @staticmethod
+    def _normalize_storage_size(storage_size):
+        """
+        Normalize storage size to Kubernetes-compatible format.
+        Converts common formats like "10GB", "50MB" to Kubernetes format "10Gi", "50Mi".
+        
+        Valid Kubernetes quantity suffixes:
+        - Binary: Ki, Mi, Gi, Ti, Pi, Ei (1024-based)
+        - Decimal: k, M, G, T, P, E (1000-based)
+        - Also accepts: m (milli), n (nano), u (micro)
+        """
+        if not storage_size:
+            raise ValueError('Storage size is required')
+        
+        storage_size = storage_size.strip()
+        
+        # Common user-friendly formats to Kubernetes format mapping
+        # Convert "GB" -> "Gi", "MB" -> "Mi", etc.
+        replacements = {
+            'GB': 'Gi',
+            'MB': 'Mi',
+            'KB': 'Ki',
+            'TB': 'Ti',
+            'PB': 'Pi',
+            'gb': 'Gi',
+            'mb': 'Mi',
+            'kb': 'Ki',
+            'tb': 'Ti',
+            'pb': 'Pi',
+        }
+        
+        for old, new in replacements.items():
+            if storage_size.endswith(old):
+                storage_size = storage_size[:-len(old)] + new
+                break
+        
+        # Validate the format matches Kubernetes quantity regex
+        # Pattern: number followed by optional suffix (e, E, i, n, u, m, k, K, M, G, T, P)
+        if not re.match(r'^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$', storage_size):
+            raise ValueError(
+                f'Invalid storage size format: "{storage_size}". '
+                'Use Kubernetes quantity format (e.g., 10Gi, 50Mi, 100Gi)'
+            )
+        
+        return storage_size
     
     @staticmethod
     def _create_mysql_replication_configmap(app_name, namespace):
