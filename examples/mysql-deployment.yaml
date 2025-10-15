@@ -1,0 +1,146 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ndk-dev
+
+---
+# Secret for MySQL credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-credentials
+  namespace: ndk-dev
+  labels:
+    app: mysql
+type: Opaque
+stringData:
+  password: "your-secure-password"
+  database: "mydb"
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: ndk-dev
+  labels:
+    app: mysql
+spec:
+  ports:
+  - port: 3306
+    name: mysql
+  clusterIP: None
+  selector:
+    app: mysql
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: ndk-dev
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+          name: mysql
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-credentials
+              key: password
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-credentials
+              key: database
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: mysql
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: nutanix-volume
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# NDK Application CR (Enable NDK Data Services)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: Application
+metadata:
+  name: mysql
+  namespace: ndk-dev
+  labels:
+    app.kubernetes.io/managed-by: ndk-dashboard
+    environment: dev
+spec:
+  applicationSelector:
+    resourceLabelSelectors:
+    - labelSelector:
+        matchLabels:
+          app: mysql
+  start: true
+  useExistingConfig: false
+
+---
+# JobScheduler for Protection Plan
+apiVersion: scheduler.nutanix.com/v1alpha1
+kind: JobScheduler
+metadata:
+  name: mysql-plan-scheduler
+  namespace: ndk-dev
+spec:
+  cronSchedule: "0 2 * * *"  # Daily at 2 AM
+
+---
+# ProtectionPlan
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: ProtectionPlan
+metadata:
+  name: mysql-plan
+  namespace: ndk-dev
+  annotations:
+    ndk-dashboard/selection-mode: by-name
+spec:
+  scheduleName: mysql-plan-scheduler
+  retentionPolicy:
+    retentionCount: 7
+  applications:
+  - mysql
+
+---
+# AppProtectionPlan (Links Application to ProtectionPlan)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: AppProtectionPlan
+metadata:
+  name: mysql-mysql-plan
+  namespace: ndk-dev
+spec:
+  applicationName: mysql
+  protectionPlanNames:
+  - mysql-plan

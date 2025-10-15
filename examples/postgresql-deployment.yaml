@@ -1,0 +1,146 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ndk-dev
+
+---
+# Secret for PostgreSQL credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgresql-credentials
+  namespace: ndk-dev
+  labels:
+    app: postgresql
+type: Opaque
+stringData:
+  password: "your-secure-password"
+  database: "mydb"
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: ndk-dev
+  labels:
+    app: postgresql
+spec:
+  ports:
+  - port: 5432
+    name: postgresql
+  clusterIP: None
+  selector:
+    app: postgresql
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: ndk-dev
+  labels:
+    app: postgresql
+spec:
+  serviceName: postgresql
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:15
+        ports:
+        - containerPort: 5432
+          name: postgresql
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-credentials
+              key: database
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: postgresql
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: nutanix-volume
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+# NDK Application CR (Enable NDK Data Services)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: Application
+metadata:
+  name: postgresql
+  namespace: ndk-dev
+  labels:
+    app.kubernetes.io/managed-by: ndk-dashboard
+    environment: production
+spec:
+  applicationSelector:
+    resourceLabelSelectors:
+    - labelSelector:
+        matchLabels:
+          app: postgresql
+  start: true
+  useExistingConfig: false
+
+---
+# JobScheduler for Protection Plan
+apiVersion: scheduler.nutanix.com/v1alpha1
+kind: JobScheduler
+metadata:
+  name: postgresql-plan-scheduler
+  namespace: ndk-dev
+spec:
+  cronSchedule: "0 */6 * * *"  # Every 6 hours
+
+---
+# ProtectionPlan
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: ProtectionPlan
+metadata:
+  name: postgresql-plan
+  namespace: ndk-dev
+  annotations:
+    ndk-dashboard/selection-mode: by-name
+spec:
+  scheduleName: postgresql-plan-scheduler
+  retentionPolicy:
+    retentionCount: 14
+  applications:
+  - postgresql
+
+---
+# AppProtectionPlan (Links Application to ProtectionPlan)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: AppProtectionPlan
+metadata:
+  name: postgresql-postgresql-plan
+  namespace: ndk-dev
+spec:
+  applicationName: postgresql
+  protectionPlanNames:
+  - postgresql-plan
