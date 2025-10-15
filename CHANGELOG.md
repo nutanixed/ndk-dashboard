@@ -5,6 +5,109 @@ All notable changes to the NDK Dashboard project will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-01-14
+
+### ✨ New Features
+
+#### Restore Job Cleanup Management
+- **Restore Cleanup Tab**: Added new admin section for managing Velero restore jobs
+  - View all restore jobs across all namespaces with detailed status information
+  - Display restore phase (Completed, Failed, PartiallyFailed, InProgress)
+  - Show creation timestamp, completion time, and warnings
+  - Filter and search capabilities for restore jobs
+  - Individual restore job deletion with confirmation modal
+  - Bulk cleanup operations:
+    - Delete all completed restores
+    - Delete all failed restores
+    - Delete all restores (with confirmation)
+  - Real-time status updates and error handling
+  - Professional UI with status badges and action buttons
+
+#### Backend Services
+- **Restore Service Layer**: New `app/services/restores.py` module
+  - List all Velero restore jobs across namespaces
+  - Get detailed restore job information
+  - Delete individual restore jobs
+  - Bulk cleanup operations with filtering by status
+  - Comprehensive error handling and logging
+- **Restore API Routes**: New `app/routes/restores.py` blueprint
+  - `GET /api/restores` - List all restore jobs
+  - `DELETE /api/restores/<namespace>/<name>` - Delete specific restore job
+  - `POST /api/restores/cleanup` - Bulk cleanup with status filtering
+  - Proper error responses and status codes
+
+### 🔄 Changed
+
+#### UI Improvements
+- **Admin Panel**: Enhanced admin interface with new Restore Cleanup tab
+- **Modal Styling**: Consistent confirmation modals for restore operations
+- **Status Display**: Color-coded status badges for restore phases:
+  - Green for Completed
+  - Red for Failed
+  - Orange for PartiallyFailed
+  - Blue for InProgress
+
+#### Code Organization
+- **Blueprint Registration**: Added restores blueprint to application factory
+- **Route Exports**: Updated `app/routes/__init__.py` to export restores blueprint
+
+### 🐛 Fixed
+
+#### Critical Fixes
+- **Restore API Routes**: Fixed URL prefix conflict in restores blueprint
+  - Removed duplicate `/api` prefix that caused 404 errors
+  - Routes now correctly registered at `/api/restores` instead of `/api/api/restores`
+  - Updated route decorators to include full paths
+  - Fixed "Unexpected token '<'" error in frontend caused by HTML 404 responses
+
+#### Improvements to Existing Features
+- **Snapshot Management**: Enhanced error handling and status reporting
+- **Protection Plans**: Improved trigger and cleanup operations
+- **Deployment Service**: Better validation and error messages
+
+### 🔒 Security
+
+- **Configuration Protection**: Added `config.cfg` to `.gitignore`
+  - Prevents accidental commits of sensitive Kubernetes cluster credentials
+  - Protects server URLs, certificates, and authentication tokens
+  - Follows security best practices for credential management
+
+### 📦 Files Added
+
+- `app/services/restores.py` - Service layer for restore job management
+- `app/routes/restores.py` - API routes for restore operations
+
+### 📦 Files Modified
+
+- `.gitignore` - Added config.cfg to prevent credential leaks
+- `app/__init__.py` - Registered restores blueprint
+- `app/routes/__init__.py` - Exported restores blueprint
+- `templates/admin.html` - Added Restore Cleanup tab with full UI
+- `app/routes/protectionplans.py` - Enhanced error handling
+- `app/routes/snapshots.py` - Improved status reporting
+- `app/services/deployment.py` - Better validation
+- `app/services/protection_plans.py` - Improved cleanup operations
+- `app/services/snapshots.py` - Enhanced error handling
+- `static/app.js` - Added restore cleanup functionality
+- `static/styles.css` - Added restore UI styling
+- `templates/index.html` - Minor UI improvements
+
+### 🎯 Technical Details
+
+#### Blueprint URL Prefix Pattern
+- Blueprints are defined without URL prefix in their definition
+- URL prefix is applied during registration in `app/__init__.py`
+- Route decorators include the full path relative to the prefix
+- This pattern ensures consistency across all blueprints
+
+#### Restore Job Management
+- Uses Velero CRD (`restore.velero.io/v1`)
+- Supports filtering by restore phase (Completed, Failed, PartiallyFailed)
+- Handles finalizers for proper resource cleanup
+- Provides detailed status information including warnings and errors
+
+---
+
 ## [3.2.0] - 2025-01-14
 
 ### ✨ New Features
