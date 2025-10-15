@@ -5,6 +5,87 @@ All notable changes to the NDK Dashboard project will be documented in this file
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-01-14
+
+### ✨ New Features
+
+#### UI Improvements
+- **Snapshot Deletion Modal**: Added styled confirmation modal for snapshot deletion (replaces browser confirm dialog)
+  - Red gradient header with trash icon
+  - Warning message with snapshot name display
+  - Consistent with other modal designs
+- **Download YAML Templates**: Added dropdown button in Deploy tab to download YAML manifests
+  - Support for MySQL, PostgreSQL, MongoDB, and Elasticsearch
+  - Templates include all resources: Namespace, Secret, Service, StatefulSet, Application CR, JobScheduler, ProtectionPlan, AppProtectionPlan
+  - Uses customizable variables: `{{APP_NAME}}`, `{{NAMESPACE}}`, `{{REPLICAS}}`, `{{STORAGE_CLASS}}`, `{{STORAGE_SIZE}}`, `{{CRON_SCHEDULE}}`, `{{RETENTION_COUNT}}`, `{{CUSTOM_LABELS}}`
+- **SVG Icons**: Replaced emoji icons with professional SVG icons for:
+  - Applications (document/list icon)
+  - Snapshots (camera/image icon)
+  - Storage Clusters (database/cylinder icon)
+  - Protection Plans (shield icon)
+- **Label Clarity**: Changed "Create NDK Application CR" to "Enable NDK Data Services" for better user understanding
+
+#### Examples Directory
+- **Deployment Examples**: Added `/examples` directory with complete YAML manifests:
+  - `mysql-deployment.yaml` - 3 replicas, 10Gi storage, daily backups, 7 retention
+  - `postgresql-deployment.yaml` - 3 replicas, 20Gi storage, every 6 hours, 14 retention
+  - `mongodb-deployment.yaml` - 3 replicas, 50Gi storage, daily backups, 10 retention
+  - `elasticsearch-deployment.yaml` - 3 replicas, 100Gi storage, daily backups, 5 retention
+  - `README.md` - Complete documentation with usage instructions and customization tips
+
+### 🔄 Changed
+
+- **Removed Confirmation Prompts**: Removed browser confirm dialogs for:
+  - Protection plan trigger (now triggers immediately)
+  - Snapshot deletion (now uses styled modal)
+
+### 🐛 Fixed
+
+#### Critical Fixes
+- **AppProtectionPlan Creation**: Fixed protection plans not creating snapshots at scheduled intervals
+  - Now properly creates AppProtectionPlan resources when deploying applications with protection plans
+  - Handles both string and dict formats for application data
+  - Links applications to protection plans correctly for by-name selection mode
+- **Protection Plan Deletion**: Enhanced cleanup to properly remove all associated resources:
+  - JobScheduler resources
+  - AppProtectionPlan resources
+  - ProtectionPlan itself
+  - Supports force deletion with finalizer removal
+
+#### Minor Fixes
+- **Bulk Snapshot Creation**: Fixed field name mismatch between frontend and backend (`success` vs `successful`)
+- **Namespace Label Consistency**: Simplified protection plan namespace field to match deploy modal format
+  - Changed from "Select Namespace:" to "Namespace:"
+  - Removed gradient background and special styling
+
+### 📚 Documentation
+
+- **YAML Examples**: Comprehensive examples for all supported database types
+- **README in Examples**: Detailed guide for using and customizing deployment YAMLs
+- **Variable Documentation**: Clear documentation of all template variables
+
+### 🗑️ Removed
+
+- **Edit Protection Plan**: Completely removed edit and suspend/disable functionality for protection plans
+  - Removed edit button and toggle button from UI
+  - Removed edit modal HTML
+  - Removed JavaScript functions: `editProtectionPlan()`, `saveProtectionPlan()`, `closeEditPlanModal()`, `updateEditScheduleInput()`, `togglePlan()`
+  - Removed backend routes: PUT `/protectionplans/<namespace>/<name>`, POST `/enable`, POST `/disable`
+  - Removed `update_protection_plan()` method from ProtectionPlanService
+  - Protection plans now only support: Trigger, History, and Delete actions
+
+### 📦 Files Modified
+
+- `app/services/protection_plans.py` - AppProtectionPlan creation and cleanup logic
+- `app/routes/protectionplans.py` - Removed edit/enable/disable routes
+- `app/services/snapshots.py` - Fixed field name for bulk operations
+- `app/routes/snapshots.py` - Fixed field reference
+- `static/app.js` - Added YAML download, snapshot deletion modal, removed edit functions
+- `templates/index.html` - Added delete modal, YAML dropdown, updated icons and labels
+- `examples/*` - New deployment examples and documentation
+
+---
+
 ## [3.0.0] - 2025-01-08
 
 ### 🎉 Major Release - Complete Architecture Overhaul
@@ -295,6 +376,7 @@ This release represents a complete architectural transformation of the NDK Dashb
 
 | Version | Release Date | Type | Description |
 |---------|-------------|------|-------------|
+| 3.2.0 | 2025-01-14 | Minor | UI improvements, YAML templates, AppProtectionPlan fixes |
 | 3.0.0 | 2025-01-08 | Major | Complete architecture overhaul with modular design |
 | 2.1.0 | 2024-XX-XX | Minor | UI improvements and pod information |
 | 2.0.0 | 2024-XX-XX | Major | Major refactoring with new features |
