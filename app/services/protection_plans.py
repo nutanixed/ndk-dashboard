@@ -340,48 +340,73 @@ class ProtectionPlanService:
             body=plan_manifest
         )
         
-        # Create AppProtectionPlan resources for by-name selection mode
-        # For by-label mode, the NDK operator will automatically discover applications
+        # Create AppProtectionPlan resources
+        apps_to_protect = []
+        
         if selection_mode == 'by-name' and applications:
-            for app in applications:
-                # Handle both string and dict formats
-                if isinstance(app, dict):
-                    app_name = app.get('name')
-                    app_namespace = app.get('namespace', namespace)
-                else:
-                    app_name = app
-                    app_namespace = namespace
+            # Use the explicitly provided applications
+            apps_to_protect = applications
+        elif selection_mode == 'by-label' and label_selector_key and label_selector_value:
+            # Query for NDK Applications matching the label selector
+            try:
+                ndk_apps = k8s_api.list_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=namespace,
+                    plural='applications'
+                )
                 
-                if not app_name:
-                    continue
-                
-                app_protection_plan_name = f"{app_name}-{name}"
-                app_protection_manifest = {
-                    'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
-                    'kind': 'AppProtectionPlan',
-                    'metadata': {
-                        'name': app_protection_plan_name,
-                        'namespace': app_namespace
-                    },
-                    'spec': {
-                        'applicationName': app_name,
-                        'protectionPlanNames': [name]
-                    }
+                # Filter applications by label selector
+                for ndk_app in ndk_apps.get('items', []):
+                    app_labels = ndk_app.get('metadata', {}).get('labels', {})
+                    if app_labels.get(label_selector_key) == label_selector_value:
+                        app_name = ndk_app.get('metadata', {}).get('name')
+                        if app_name:
+                            apps_to_protect.append(app_name)
+                            print(f"Found matching application: {app_name} with {label_selector_key}={label_selector_value}", file=sys.stderr, flush=True)
+            except ApiException as e:
+                print(f"Warning: Failed to query NDK Applications: {e.reason}", file=sys.stderr, flush=True)
+        
+        # Create AppProtectionPlan for each application
+        for app in apps_to_protect:
+            # Handle both string and dict formats
+            if isinstance(app, dict):
+                app_name = app.get('name')
+                app_namespace = app.get('namespace', namespace)
+            else:
+                app_name = app
+                app_namespace = namespace
+            
+            if not app_name:
+                continue
+            
+            app_protection_plan_name = f"{app_name}-{name}"
+            app_protection_manifest = {
+                'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
+                'kind': 'AppProtectionPlan',
+                'metadata': {
+                    'name': app_protection_plan_name,
+                    'namespace': app_namespace
+                },
+                'spec': {
+                    'applicationName': app_name,
+                    'protectionPlanNames': [name]
                 }
-                
-                try:
-                    k8s_api.create_namespaced_custom_object(
-                        group=Config.NDK_API_GROUP,
-                        version=Config.NDK_API_VERSION,
-                        namespace=app_namespace,
-                        plural='appprotectionplans',
-                        body=app_protection_manifest
-                    )
-                    print(f"Created AppProtectionPlan: {app_protection_plan_name} in namespace {app_namespace}", file=sys.stderr, flush=True)
-                except ApiException as e:
-                    # If it already exists, that's okay
-                    if e.status != 409:
-                        print(f"Warning: Failed to create AppProtectionPlan for {app_name}: {e.reason}", file=sys.stderr, flush=True)
+            }
+            
+            try:
+                k8s_api.create_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=app_namespace,
+                    plural='appprotectionplans',
+                    body=app_protection_manifest
+                )
+                print(f"Created AppProtectionPlan: {app_protection_plan_name} in namespace {app_namespace}", file=sys.stderr, flush=True)
+            except ApiException as e:
+                # If it already exists, that's okay
+                if e.status != 409:
+                    print(f"Warning: Failed to create AppProtectionPlan for {app_name}: {e.reason}", file=sys.stderr, flush=True)
         
         return {
             'name': name,
