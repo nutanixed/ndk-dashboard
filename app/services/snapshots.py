@@ -455,98 +455,93 @@ class SnapshotService:
             if e.status != 404:  # Ignore if status not yet available
                 raise
         
-        # For cross-namespace restores, NDK does NOT automatically create the Application CRD
+        # NDK does NOT automatically create the Application CRD for restores
         # We need to create it manually so the restored app appears in the dashboard
-        if restore_namespace != namespace:
-            logger.info(f"📋 Creating NDK Application CRD for restored application...")
+        logger.info(f"📋 Creating NDK Application CRD for restored application...")
+        sys.stdout.flush()
+        
+        # Get the original Application CRD from source namespace to copy its selector
+        try:
+            source_app = k8s_api.get_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=namespace,
+                plural='applications',
+                name=original_app_name
+            )
+            
+            # Extract the application selector from the source
+            source_spec = source_app.get('spec', {})
+            app_selector = source_spec.get('applicationSelector', {
+                'resourceLabelSelectors': [{
+                    'labelSelector': {
+                        'matchLabels': {'app': original_app_name}
+                    }
+                }]
+            })
+            
+            logger.info(f"  ✓ Found source Application CRD with selector: {app_selector}")
             sys.stdout.flush()
             
-            # Get the original Application CRD from source namespace to copy its selector
-            try:
-                source_app = k8s_api.get_namespaced_custom_object(
-                    group=Config.NDK_API_GROUP,
-                    version=Config.NDK_API_VERSION,
-                    namespace=namespace,
-                    plural='applications',
-                    name=original_app_name
-                )
-                
-                # Extract the application selector from the source
-                source_spec = source_app.get('spec', {})
-                app_selector = source_spec.get('applicationSelector', {
+        except ApiException as e:
+            if e.status == 404:
+                # Source Application CRD doesn't exist, use default selector
+                logger.warning(f"  ⚠ Source Application CRD not found, using default selector")
+                app_selector = {
                     'resourceLabelSelectors': [{
                         'labelSelector': {
                             'matchLabels': {'app': original_app_name}
                         }
                     }]
-                })
-                
-                logger.info(f"  ✓ Found source Application CRD with selector: {app_selector}")
+                }
                 sys.stdout.flush()
-                
-            except ApiException as e:
-                if e.status == 404:
-                    # Source Application CRD doesn't exist, use default selector
-                    logger.warning(f"  ⚠ Source Application CRD not found, using default selector")
-                    app_selector = {
-                        'resourceLabelSelectors': [{
-                            'labelSelector': {
-                                'matchLabels': {'app': original_app_name}
-                            }
-                        }]
+            else:
+                raise
+        
+        # Check if Application CRD already exists in target namespace
+        # Use restored_app_name (which could be different if cloning) for the CRD name
+        try:
+            k8s_api.get_namespaced_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                namespace=restore_namespace,
+                plural='applications',
+                name=restored_app_name
+            )
+            logger.info(f"  ✓ Application CRD '{restored_app_name}' already exists in target namespace")
+            sys.stdout.flush()
+        except ApiException as e:
+            if e.status == 404:
+                # Create the Application CRD in target namespace
+                # Use restored_app_name for the CRD name (supports cloning with new name)
+                # But keep the selector pointing to original_app_name (NDK restores with original names)
+                app_manifest = {
+                    'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
+                    'kind': 'Application',
+                    'metadata': {
+                        'name': restored_app_name,
+                        'namespace': restore_namespace,
+                        'labels': {
+                            'app.kubernetes.io/managed-by': 'ndk-dashboard',
+                            'restored-from': namespace
+                        }
+                    },
+                    'spec': {
+                        'applicationSelector': app_selector
                     }
-                    sys.stdout.flush()
-                else:
-                    raise
-            
-            # Check if Application CRD already exists in target namespace
-            # Use restored_app_name (which could be different if cloning) for the CRD name
-            try:
-                k8s_api.get_namespaced_custom_object(
+                }
+                
+                k8s_api.create_namespaced_custom_object(
                     group=Config.NDK_API_GROUP,
                     version=Config.NDK_API_VERSION,
                     namespace=restore_namespace,
                     plural='applications',
-                    name=restored_app_name
+                    body=app_manifest
                 )
-                logger.info(f"  ✓ Application CRD '{restored_app_name}' already exists in target namespace")
+                logger.info(f"  ✓ Created Application CRD '{restored_app_name}' in namespace '{restore_namespace}'")
                 sys.stdout.flush()
-            except ApiException as e:
-                if e.status == 404:
-                    # Create the Application CRD in target namespace
-                    # Use restored_app_name for the CRD name (supports cloning with new name)
-                    # But keep the selector pointing to original_app_name (NDK restores with original names)
-                    app_manifest = {
-                        'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
-                        'kind': 'Application',
-                        'metadata': {
-                            'name': restored_app_name,
-                            'namespace': restore_namespace,
-                            'labels': {
-                                'app.kubernetes.io/managed-by': 'ndk-dashboard',
-                                'restored-from': namespace
-                            }
-                        },
-                        'spec': {
-                            'applicationSelector': app_selector
-                        }
-                    }
-                    
-                    k8s_api.create_namespaced_custom_object(
-                        group=Config.NDK_API_GROUP,
-                        version=Config.NDK_API_VERSION,
-                        namespace=restore_namespace,
-                        plural='applications',
-                        body=app_manifest
-                    )
-                    logger.info(f"  ✓ Created Application CRD '{restored_app_name}' in namespace '{restore_namespace}'")
-                    sys.stdout.flush()
-                else:
-                    raise
-        else:
-            # Same-namespace restore - NDK should create the Application CRD automatically
-            logger.info(f"✓ Same-namespace restore: NDK will manage Application CRD automatically")
-            sys.stdout.flush()
+            else:
+                raise
         
         # Return info about the restored/cloned application
         return {

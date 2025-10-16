@@ -40,7 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### UI Improvements
 - **Admin Panel**: Enhanced admin interface with new Restore Cleanup tab
-- **Modal Styling**: Consistent confirmation modals for restore operations
+- **Modal Styling**: Consistent confirmation modals for all restore operations
+  - Individual restore deletion now uses the same polished modal UI as "Cleanup All"
+  - Red gradient header with trash icon
+  - Warning message with restore job details (name and namespace)
+  - Progress modal with status updates and auto-refresh
+  - Replaced simple confirm/alert dialogs with professional modal workflow
 - **Status Display**: Color-coded status badges for restore phases:
   - Green for Completed
   - Red for Failed
@@ -59,6 +64,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Routes now correctly registered at `/api/restores` instead of `/api/api/restores`
   - Updated route decorators to include full paths
   - Fixed "Unexpected token '<'" error in frontend caused by HTML 404 responses
+- **Snapshot Restore Application CRD Creation**: Fixed missing Application CRD after snapshot restore
+  - Fixed bug where Application CRD was only created for cross-namespace restores
+  - Now creates Application CRD for ALL restore operations (same-namespace and cross-namespace)
+  - Ensures restored applications are immediately visible in the NDK Dashboard
+  - Properly copies selector from source Application CRD or uses default selector
+  - Updated comments to clarify that NDK does not automatically create Application CRDs for any restore type
 
 #### Improvements to Existing Features
 - **Snapshot Management**: Enhanced error handling and status reporting
@@ -82,12 +93,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.gitignore` - Added config.cfg to prevent credential leaks
 - `app/__init__.py` - Registered restores blueprint
 - `app/routes/__init__.py` - Exported restores blueprint
-- `templates/admin.html` - Added Restore Cleanup tab with full UI
+- `templates/admin.html` - Added Restore Cleanup tab with full UI and individual restore deletion modal
 - `app/routes/protectionplans.py` - Enhanced error handling
 - `app/routes/snapshots.py` - Improved status reporting
 - `app/services/deployment.py` - Better validation
 - `app/services/protection_plans.py` - Improved cleanup operations
-- `app/services/snapshots.py` - Enhanced error handling
+- `app/services/snapshots.py` - Fixed Application CRD creation logic for all restore types
 - `static/app.js` - Added restore cleanup functionality
 - `static/styles.css` - Added restore UI styling
 - `templates/index.html` - Minor UI improvements
