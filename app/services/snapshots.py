@@ -58,7 +58,17 @@ class SnapshotService:
                     if ready_to_use:
                         state = 'Ready'
                     elif status:
-                        state = 'Creating'
+                        # Check for error conditions in status conditions array
+                        conditions = status.get('conditions', [])
+                        has_error = any(
+                            cond.get('type') == 'Failed' or 
+                            cond.get('reason', '').endswith('Failed')
+                            for cond in conditions
+                        )
+                        if has_error:
+                            state = 'Failed'
+                        else:
+                            state = 'Creating'
                     else:
                         state = 'Unknown'
                 

@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NDK Resources</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        :root {
+            --brand-primary: #4f46e5;
+            --brand-secondary: #7c3aed;
+            --brand-accent: #0ea5e9;
+            --success: #059669;
+            --warning: #d97706;
+            --error: #dc2626;
+            --info: #0284c7;
+            --neutral-50: #f8fafc;
+            --neutral-100: #f1f5f9;
+            --neutral-200: #e2e8f0;
+            --neutral-300: #cbd5e1;
+            --neutral-400: #94a3b8;
+            --neutral-500: #64748b;
+            --neutral-600: #475569;
+            --neutral-700: #334155;
+            --neutral-800: #1e293b;
+            --neutral-900: #0f172a;
+            --white: #ffffff;
+            --bg-primary: var(--neutral-50);
+            --bg-secondary: var(--white);
+            --bg-tertiary: var(--neutral-100);
+            --text-primary: var(--neutral-800);
+            --text-secondary: var(--neutral-600);
+            --text-muted: var(--neutral-500);
+            --border-light: var(--neutral-200);
+            --border-medium: var(--neutral-300);
+            --border-strong: var(--neutral-400);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            box-shadow: var(--shadow-xl);
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%);
+            color: white;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+            opacity: 0.5;
+        }
+        
+        .header-container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .nav-actions-menu {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 10;
+        }
+
+        .nav-icon-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.625rem 1rem;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-icon-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .nav-icon-btn svg {
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nutanix-logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 0.5rem;
+        }
+
+        .nutanix-logo .st0 {
+            fill: white;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+            font-weight: 400;
+        }
+
+        @media (max-width: 768px) {
+            .nav-btn-label {
+                display: none;
+            }
+            .nav-icon-btn {
+                padding: 0.625rem;
+            }
+        }
+        
+        .content {
+            padding: 2rem;
+        }
+        
+        .filter-bar {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .filter-input {
+            flex: 1;
+            min-width: 250px;
+            padding: 0.625rem 1rem;
+            border: 2px solid var(--border-medium);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        
+        .filter-input:focus {
+            outline: none;
+            border-color: var(--brand-primary);
+        }
+        
+        .refresh-btn {
+            padding: 0.625rem 1.25rem;
+            background: var(--brand-primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .refresh-btn:hover {
+            background: var(--brand-secondary);
+            transform: translateY(-1px);
+        }
+        
+        .resource-section {
+            margin-bottom: 2rem;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            border-radius: 12px 12px 0 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .section-header:hover {
+            background: var(--neutral-200);
+        }
+        
+        .section-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .section-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            height: 2rem;
+            padding: 0 0.5rem;
+            background: var(--brand-primary);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 700;
+        }
+        
+        .toggle-icon {
+            font-size: 1.25rem;
+            transition: transform 0.2s;
+        }
+        
+        .toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+        
+        .table-container {
+            border: 1px solid var(--border-light);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .table-container.expanded {
+            max-height: 2000px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        thead {
+            background: var(--neutral-100);
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        
+        th {
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid var(--border-medium);
+        }
+        
+        td {
+            padding: 0.875rem 1rem;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        tbody tr {
+            transition: background 0.15s;
+        }
+        
+        tbody tr:hover {
+            background: var(--neutral-50);
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.625rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-ready, .status-running, .status-bound, .status-success, .status-active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-notready, .status-pending, .status-failed, .status-warning, .status-error, .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status-unknown {
+            background: #e5e7eb;
+            color: #374151;
+        }
+        
+        .expand-icon {
+            display: inline-block;
+            margin-right: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: transform 0.2s;
+            user-select: none;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .expandable-row {
+            cursor: pointer;
+        }
+        
+        .expandable-row:hover {
+            background: var(--neutral-100) !important;
+        }
+        
+        .pod-details-row {
+            display: none;
+        }
+        
+        .pod-details-row.expanded {
+            display: table-row;
+        }
+        
+        .pod-details-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .pod-details-table th {
+            background: var(--neutral-100);
+            padding: 0.625rem 0.875rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .pod-details-table td {
+            padding: 0.625rem 0.875rem;
+            font-size: 0.8125rem;
+            border-bottom: 1px solid var(--border-light);
+        }
+        
+        .pod-details-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .pod-details-table tbody tr:hover {
+            background: var(--neutral-50);
+        }
+        
+        .pod-count-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.125rem 0.5rem;
+            background: var(--brand-accent);
+            color: white;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+        }
+        
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .loading {
+            padding: 3rem;
+            text-align: center;
+            color: var(--text-muted);
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-light);
+            border-top-color: var(--brand-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .nav-btn-label {
+                display: none;
+            }
+            .nav-icon-btn {
+                padding: 0.625rem;
+            }
+            .content {
+                padding: 1rem;
+            }
+            table {
+                font-size: 0.75rem;
+            }
+            th, td {
+                padding: 0.5rem;
+            }
+            .section-title {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-container">
+                <div class="nav-actions-menu">
+                    <a href="{{ url_for('main.index') }}" class="nav-icon-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                        </svg>
+                        <span class="nav-btn-label">Dashboard</span>
+                    </a>
+                </div>
+                
+                <div class="header-content">
+                <svg class="nutanix-logo" viewBox="0 0 1064.95 134.32" xmlns="http://www.w3.org/2000/svg">
+                        <style type="text/css">.st0{fill:white !important;}</style>
+                        <path class="st0" d="M476.14,28.26h-53.43c-0.05,0-0.08,0.04-0.08,0.08v103.97c0,1.1-0.9,2-2,2h-25.81c-1.1,0-2-0.9-2-2V28.34c0-0.05-0.04-0.08-0.08-0.08h-53.28c-1.1,0-2-0.9-2-2V2.98c0-1.1,0.9-2,2-2h136.68c1.1,0,2,0.9,2,2v23.28C478.14,27.36,477.25,28.26,476.14,28.26z M855.74,0.98h-25.81c-1.1,0-2,0.9-2,2v129.34c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2V2.98C857.74,1.87,856.84,0.98,855.74,0.98z M1064.31,131.08c0.58,0.5,0.79,1.32,0.52,2.04s-0.96,1.2-1.73,1.2h-39.75c-0.44,0-0.87-0.16-1.21-0.45l-43.67-37.79c-0.4-0.35-0.64-0.86-0.64-1.39c0-0.54,0.23-1.04,0.64-1.39l19.87-17.2c0.69-0.6,1.72-0.6,2.41,0L1064.31,131.08z M998.36,59.2c0.35,0.3,0.78,0.45,1.21,0.45c0.43,0,0.86-0.15,1.21-0.45l63.54-54.99c0.58-0.5,0.79-1.32,0.52-2.04c-0.27-0.72-0.96-1.2-1.73-1.2h-39.75c-0.44,0-0.87,0.16-1.21,0.45l-43.67,37.79c-0.4,0.35-0.64,0.86-0.64,1.39c0,0.54,0.23,1.04,0.64,1.39L998.36,59.2z M990.04,67.65c0-0.54-0.23-1.04-0.64-1.39L914.49,1.43c-0.33-0.29-0.76-0.45-1.21-0.45h-39.75c-0.77,0-1.46,0.48-1.73,1.2s-0.06,1.53,0.52,2.04l73.23,63.37c0.04,0.03,0.04,0.09,0,0.13l-73.23,63.37c-0.58,0.5-0.79,1.32-0.52,2.04s0.96,1.2,1.73,1.2h39.75c0.44,0,0.87-0.16,1.21-0.45l74.91-64.83C989.81,68.69,990.04,68.18,990.04,67.65z M29.81,44.32c0-0.07,0.08-0.11,0.13-0.07c3.92,3.51,93.13,83.39,97.43,86.77c3.8,2.98,8.19,4.83,13.91,3.99c7.4-0.9,15.54-7.22,15.54-17.86V2.98c0-1.1-0.9-2-2-2h-25.81c-1.1,0-2,0.9-2,2v87.91c0,0.07-0.08,0.11-0.13,0.07c-3.92-3.51-93.13-83.39-97.43-86.77c-3.8-2.98-8.19-4.83-13.91-3.99C8.14,1.1,0,7.43,0,18.06v114.25c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2L29.81,44.32z M684.96,44.32c0-0.07,0.08-0.11,0.13-0.07c3.92,3.51,93.13,83.39,97.43,86.77c3.8,2.98,8.19,4.83,13.91,3.99c7.4-0.9,15.54-7.22,15.54-17.86V2.98c0-1.1-0.9-2-2-2h-25.81c-1.1,0-2,0.9-2,2v87.91c0,0.07-0.08,0.11-0.13,0.07c-3.92-3.51-93.13-83.39-97.43-86.77c-3.8-2.98-8.19-4.83-13.91-3.99c-7.4,0.9-15.54,7.23-15.54,17.86v114.25c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2V44.32z M255.72,136.96c16.08-0.04,34-0.95,45-7.44c14.64-8.64,21.76-20.64,21.76-36.67l0.01-89.87c0-1.1-0.9-2-2-2h-26.06c-1.1,0-2,0.9-2,2l-0.01,88.12c-0.25,17.54-21.98,17.72-37.66,17.72h-14.25c-15.68,0-37.4-0.17-37.66-17.72l-0.01-88.12c0-1.1-0.9-2-2-2h-26.06c-1.1,0-2,0.9-2,2l0.01,89.87c0,16.03,7.12,28.03,21.76,36.67c11,6.49,28.92,7.41,45,7.44H255.72z M642.86,131.31c0.41,0.58,0.46,1.34,0.14,1.98c-0.32,0.63-0.97,1.03-1.68,1.03h-31.87c-0.64,0-1.24-0.31-1.61-0.84l-18.59-26.58c-0.02-0.02-0.04-0.04-0.07-0.04h-95.56c-0.03,0-0.05,0.01-0.07,0.04l-18.66,26.61c-0.35,0.51-0.93,0.81-1.54,0.81h-31.87c-0.71,0-1.36-0.4-1.68-1.03s-0.27-1.4,0.14-1.98c0,0,81.05-115.69,86.05-122.6S536.02,0,541.44,0c5.97,0,10.58,2.23,15.02,8.18L642.86,131.31z M569.84,79.45L541.48,39.3c-0.03-0.05-0.1-0.05-0.14,0l-28.37,40.15c-0.04,0.06,0,0.13,0.07,0.13h56.73C569.84,79.58,569.88,79.5,569.84,79.45z"/>
+                    </svg>
+                    <h1>NDK Resources</h1>
+                    <p class="subtitle">Nutanix Data Services Resources</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="filter-bar">
+                <input type="text" id="searchInput" class="filter-input" placeholder="Search resources by name or namespace...">
+                <button class="refresh-btn" onclick="loadResources()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="23 4 23 10 17 10"></polyline>
+                        <polyline points="1 20 1 14 7 14"></polyline>
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div id="loadingState" class="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 1rem;">Loading resources...</p>
+            </div>
+
+            <div id="resourcesContainer" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const resourceTypes = [
+            { id: 'applicationcrds', title: 'Application CRDs', key: 'applicationCRDs' },
+            { id: 'snapshots', title: 'Application Snapshots', key: 'snapshots' },
+            { id: 'restores', title: 'ApplicationSnapshotRestores', key: 'applicationSnapshotRestores' },
+            { id: 'plans', title: 'Protection Plans', key: 'protectionPlans' },
+            { id: 'clusters', title: 'Storage Clusters', key: 'storageClusters' },
+            { id: 'pvcs', title: 'PVCs', key: 'persistentVolumeClaims' },
+            { id: 'volumesnapshots', title: 'Volume Snapshots', key: 'volumeSnapshots' }
+        ];
+
+        let allResources = {};
+        let searchQuery = '';
+
+        async function loadResources() {
+            document.getElementById('loadingState').style.display = 'block';
+            document.getElementById('resourcesContainer').style.display = 'none';
+
+            try {
+                const response = await fetch('/api/resources');
+                const data = await response.json();
+
+                if (response.ok) {
+                    allResources = data;
+                    renderResources();
+                    document.getElementById('loadingState').style.display = 'none';
+                    document.getElementById('resourcesContainer').style.display = 'block';
+                } else {
+                    showError('Failed to load resources');
+                }
+            } catch (error) {
+                showError(`Error: ${error.message}`);
+            }
+        }
+
+        function filterResources(resources) {
+            if (!searchQuery) return resources;
+            const query = searchQuery.toLowerCase();
+            return resources.filter(r => 
+                (r.name && r.name.toLowerCase().includes(query)) ||
+                (r.namespace && r.namespace.toLowerCase().includes(query))
+            );
+        }
+
+        function renderResources() {
+            const container = document.getElementById('resourcesContainer');
+            let html = '';
+
+            for (const resourceType of resourceTypes) {
+                if (resourceType.id === 'pvcs') {
+                    const pvcs = filterResources(allResources[resourceType.key] || []);
+                    const pvs = allResources.persistentVolumes || [];
+                    html += createPVCSection(resourceType, pvcs, pvs);
+                } else {
+                    const resources = allResources[resourceType.key] || [];
+                    const filtered = filterResources(resources);
+                    html += createResourceSection(resourceType, resources, filtered);
+                }
+            }
+
+            container.innerHTML = html;
+            attachPVCEventListeners();
+        }
+
+        function createPVCSection(resourceType, pvcs, allPVs) {
+            let html = `
+                <div class="resource-section">
+                    <div class="section-header" onclick="toggleSection('${resourceType.id}')">
+                        <div class="section-title">
+                            <span>${resourceType.title}</span>
+                            <span class="section-count">${pvcs.length}</span>
+                        </div>
+                        <span class="toggle-icon" id="${resourceType.id}Toggle">▼</span>
+                    </div>
+                    <div class="table-container" id="${resourceType.id}Table">
+            `;
+            
+            if (pvcs.length === 0) {
+                html += '<div class="empty-state">No resources found</div>';
+            } else {
+                html += '<table><thead><tr>';
+                html += '<th>Name</th><th>Namespace</th><th>Status</th><th>Volume</th><th>Capacity</th><th>Storage Class</th><th>Age</th>';
+                html += '</tr></thead><tbody>';
+                
+                pvcs.forEach((pvc, index) => {
+                    const rowId = `pvc-${index}`;
+                    const boundPV = pvc.volume !== 'Pending' ? allPVs.find(pv => pv.name === pvc.volume) : null;
+                    const expandIcon = boundPV ? `<span class="expand-icon" id="icon-${rowId}">▶</span>` : '';
+                    const pvBadge = boundPV ? `<span class="pod-count-badge" style="background: var(--success);">PV Bound</span>` : '';
+                    const expandableClass = boundPV ? 'expandable-row' : '';
+                    const onclickAttr = boundPV ? `onclick="togglePodDetails('${rowId}')"` : '';
+                    
+                    const statusClass = getStatusClass(pvc.status);
+                    html += `
+                        <tr class="${expandableClass}" ${onclickAttr}>
+                            <td>
+                                ${expandIcon}
+                                <strong>${pvc.name}</strong>
+                                ${pvBadge}
+                            </td>
+                            <td>${pvc.namespace}</td>
+                            <td><span class="status-badge ${statusClass}">${pvc.status}</span></td>
+                            <td><code style="font-size: 0.75rem;">${pvc.volume}</code></td>
+                            <td>${pvc.capacity}</td>
+                            <td>${pvc.storageClass}</td>
+                            <td>${formatAge(pvc.age)}</td>
+                        </tr>
+                    `;
+                    
+                    if (boundPV) {
+                        html += `
+                            <tr class="pod-details-row" id="${rowId}">
+                                <td colspan="7" style="padding: 0;">
+                                    <div style="padding: 1rem; background: var(--neutral-50); border-left: 3px solid var(--success);">
+                                        <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                            </svg>
+                                            Bound Persistent Volume
+                                        </div>
+                                        <table class="pod-details-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Capacity</th>
+                                                    <th>Access Modes</th>
+                                                    <th>Reclaim Policy</th>
+                                                    <th>Status</th>
+                                                    <th>Storage Class</th>
+                                                    <th>Age</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td><strong>${boundPV.name}</strong></td>
+                                                    <td>${boundPV.capacity}</td>
+                                                    <td>${boundPV.accessModes}</td>
+                                                    <td>${boundPV.reclaimPolicy}</td>
+                                                    <td><span class="status-badge ${getStatusClass(boundPV.status)}">${boundPV.status}</span></td>
+                                                    <td>${boundPV.storageClass}</td>
+                                                    <td>${formatAge(boundPV.age)}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </td>
+                            </tr>
+                        `;
+                    }
+                });
+                
+                html += '</tbody></table>';
+            }
+            
+            html += `
+                    </div>
+                </div>
+            `;
+            return html;
+        }
+
+        function createResourceSection(resourceType, allItems, filteredItems) {
+            return `
+                <div class="resource-section">
+                    <div class="section-header" onclick="toggleSection('${resourceType.id}')">
+                        <div class="section-title">
+                            <span>${resourceType.title}</span>
+                            <span class="section-count">${filteredItems.length}</span>
+                        </div>
+                        <span class="toggle-icon" id="${resourceType.id}Toggle">▼</span>
+                    </div>
+                    <div class="table-container" id="${resourceType.id}Table">
+                        ${filteredItems.length === 0 ? 
+                            '<div class="empty-state">No resources found</div>' :
+                            createResourceTable(filteredItems, resourceType.id)
+                        }
+                    </div>
+                </div>
+            `;
+        }
+
+        function getTableHeaders(resourceType) {
+            switch (resourceType) {
+                case 'applicationcrds':
+                    return ['Name', 'Namespace', 'Type', 'Created'];
+                case 'applicationSnapshotRestores':
+                    return ['Name', 'Namespace', 'Snapshot', 'State', 'Created'];
+                case 'volumesnapshots':
+                    return ['Name', 'Namespace', 'State', 'Created'];
+                default:
+                    return ['Name', 'Namespace', 'State', 'Created', 'Message'];
+            }
+        }
+
+        function createResourceTable(resources, resourceType) {
+            const headers = getTableHeaders(resourceType);
+            
+            let html = '<table><thead><tr>';
+            for (const header of headers) {
+                html += `<th>${header}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            for (const resource of resources) {
+                const state = resource.state || 'Unknown';
+                const stateBadgeClass = getStatusClass(state);
+                const createdDate = formatAge(resource.created);
+
+                if (resourceType === 'applicationcrds') {
+                    html += `
+                        <tr>
+                            <td><strong>${resource.name}</strong></td>
+                            <td>${resource.namespace}</td>
+                            <td><span class="status-badge ${stateBadgeClass}">${state}</span></td>
+                            <td>${createdDate}</td>
+                        </tr>
+                    `;
+                } else if (resourceType === 'applicationSnapshotRestores') {
+                    html += `
+                        <tr>
+                            <td><strong>${resource.name}</strong></td>
+                            <td>${resource.namespace}</td>
+                            <td>${resource.snapshot || '-'}</td>
+                            <td><span class="status-badge ${stateBadgeClass}">${state}</span></td>
+                            <td>${createdDate}</td>
+                        </tr>
+                    `;
+                } else if (resourceType === 'volumesnapshots') {
+                    html += `
+                        <tr>
+                            <td><strong>${resource.name}</strong></td>
+                            <td>${resource.namespace}</td>
+                            <td><span class="status-badge ${stateBadgeClass}">${state}</span></td>
+                            <td>${createdDate}</td>
+                        </tr>
+                    `;
+                } else {
+                    html += `
+                        <tr>
+                            <td><strong>${resource.name}</strong></td>
+                            <td>${resource.namespace}</td>
+                            <td><span class="status-badge ${stateBadgeClass}">${state}</span></td>
+                            <td>${createdDate}</td>
+                            <td>${resource.message || '-'}</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function getStatusClass(state) {
+            state = (state || '').toLowerCase();
+            if (state.includes('ready') || state.includes('running') || state.includes('success') || state.includes('active') || state.includes('bound')) {
+                return 'status-ready';
+            } else if (state.includes('pending') || state.includes('waiting') || state.includes('inactive') || state.includes('not ready') || state.includes('inprogress')) {
+                return 'status-pending';
+            } else if (state.includes('failed') || state.includes('error')) {
+                return 'status-failed';
+            }
+            return 'status-unknown';
+        }
+
+        function formatAge(dateString) {
+            if (!dateString) return '-';
+            try {
+                const date = new Date(dateString);
+                const now = new Date();
+                const seconds = Math.floor((now - date) / 1000);
+                
+                if (seconds < 60) return `${seconds}s ago`;
+                if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+                if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+                if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+                return date.toLocaleDateString();
+            } catch {
+                return dateString;
+            }
+        }
+
+        function toggleSection(sectionId) {
+            const table = document.getElementById(`${sectionId}Table`);
+            const toggle = document.getElementById(`${sectionId}Toggle`);
+            
+            if (table.classList.contains('expanded')) {
+                table.classList.remove('expanded');
+                toggle.classList.add('collapsed');
+            } else {
+                table.classList.add('expanded');
+                toggle.classList.remove('collapsed');
+            }
+        }
+
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            searchQuery = e.target.value;
+            renderResources();
+        });
+
+        function togglePodDetails(rowId) {
+            const row = document.getElementById(rowId);
+            const icon = document.getElementById(`icon-${rowId}`);
+            if (row) {
+                row.classList.toggle('expanded');
+            }
+            if (icon) {
+                icon.classList.toggle('expanded');
+            }
+        }
+
+        function attachPVCEventListeners() {
+            const expandableRows = document.querySelectorAll('.expandable-row');
+            expandableRows.forEach(row => {
+                row.addEventListener('click', function(e) {
+                    if (e.target.closest('.expand-icon')) {
+                        e.stopPropagation();
+                    }
+                });
+            });
+        }
+
+        function showError(message) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('resourcesContainer').style.display = 'block';
+            document.getElementById('resourcesContainer').innerHTML = `<div class="empty-state">⚠️ ${message}</div>`;
+        }
+
+        loadResources();
+    </script>
+</body>
+</html>

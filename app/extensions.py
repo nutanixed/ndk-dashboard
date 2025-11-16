@@ -15,10 +15,14 @@ k8s_storage_api = None
 
 # Cache for API responses
 cache = {
-    'applications': {'data': None, 'timestamp': None},
+    'applicationcrds': {'data': None, 'timestamp': None},
     'snapshots': {'data': None, 'timestamp': None},
     'storageclusters': {'data': None, 'timestamp': None},
-    'protectionplans': {'data': None, 'timestamp': None}
+    'protectionplans': {'data': None, 'timestamp': None},
+    'applicationsnapshotrestores': {'data': None, 'timestamp': None},
+    'persistentvolumeclaims': {'data': None, 'timestamp': None},
+    'persistentvolumes': {'data': None, 'timestamp': None},
+    'volumesnapshots': {'data': None, 'timestamp': None}
 }
 
 # Cache buster for static files

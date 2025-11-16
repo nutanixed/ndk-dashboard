@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSearch();
     initializeNamespaceFilter();
     initializeProtectionPlanFilter();
+    loadSettings();
     loadAllData();
 });
 
@@ -48,6 +49,34 @@ function switchTab(tabName) {
     document.getElementById(`${tabName}-tab`).classList.add('active');
     
     currentTab = tabName;
+}
+
+// Settings Management
+async function loadSettings() {
+    try {
+        const response = await fetch('/api/settings');
+        const data = await response.json();
+        const deployEnabled = data.features?.deploy !== false;
+        
+        if (!deployEnabled) {
+            // Hide the Deploy tab
+            const deployTab = document.querySelector('[data-tab="deploy"]');
+            if (deployTab) {
+                deployTab.style.display = 'none';
+            }
+            const deployContent = document.getElementById('deploy-tab');
+            if (deployContent) {
+                deployContent.style.display = 'none';
+            }
+            
+            // If Deploy tab is active, switch to Applications
+            if (currentTab === 'deploy') {
+                switchTab('applications');
+            }
+        }
+    } catch (error) {
+        console.error('Error loading settings:', error);
+    }
 }
 
 // Refresh Management
@@ -445,8 +474,8 @@ function renderApplications(data, container) {
     const bulkActionsHtml = sortedData.length > 0 ? `
     <div class="bulk-actions" id="bulk-actions" style="display: none;">
             <span id="selected-count">0 selected</span>
-            <button class="btn-bulk" onclick="bulkCreateSnapshots()">📸 Create Snapshots</button>
-            <button class="btn-bulk-cancel" onclick="clearSelection()">✕ Clear</button>
+            <button class="btn-bulk" onclick="bulkCreateSnapshots()">Create Snapshots</button>
+            <button class="btn-bulk-cancel" onclick="clearSelection()">Clear Selection</button>
         </div>
     ` : '';
     
@@ -457,16 +486,16 @@ function renderApplications(data, container) {
                 <thead>
                     <tr>
                         <th style="width: 3%;"><input type="checkbox" id="select-all-apps" onchange="toggleSelectAll(this)"></th>
-                        <th style="width: 14%;">Name</th>
-                        <th style="width: 9%;">Namespace</th>
-                        <th style="width: 7%;">Status</th>
+                        <th style="width: 12%;">Name</th>
+                        <th style="width: 8%;">Namespace</th>
+                        <th style="width: 6%;">Status</th>
                         <th style="width: 5%;">Replicas</th>
-                        <th style="width: 6%;">Volume Groups</th>
-                        <th style="width: 10%;">Service DNS</th>
-                        <th style="width: 12%;">Labels</th>
-                        <th style="width: 9%;">Last Snapshot</th>
-                        <th style="width: 9%;">Created</th>
-                        <th style="width: 16%;">Actions</th>
+                        <th style="width: 8%;">Volume Groups</th>
+                        <th style="width: 9%;">DNS</th>
+                        <th style="width: 4%;">Labels</th>
+                        <th style="width: 6%;">Last Snap</th>
+                        <th style="width: 6%;">Created</th>
+                        <th style="width: 15%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -478,12 +507,8 @@ function renderApplications(data, container) {
                         const appCreated = app.created || null;
                         const appLabels = app.labels || {};
                         
-                        // Format labels for display
-                        const labelsHtml = Object.keys(appLabels).length > 0 
-                            ? Object.entries(appLabels)
-                                .map(([key, value]) => `<span class="label-badge">${escapeHtml(key)}=${escapeHtml(value)}</span>`)
-                                .join(' ')
-                            : '<span class="text-muted">No labels</span>';
+                        // Count labels
+                        const labelsCount = Object.keys(appLabels).length;
                         
                         // Generate Service DNS
                         const serviceDnsShort = `${escapeHtml(appName)}.${escapeHtml(appNamespace)}`;
@@ -518,26 +543,33 @@ function renderApplications(data, container) {
                                 </span>
                             </td>
                             <td>
-                                <span class="service-dns-wrapper" 
+                                <span class="service-dns-count" 
                                       data-app-name="${escapeHtml(appName)}" 
                                       data-app-namespace="${escapeHtml(appNamespace)}"
-                                      onmouseenter="showServiceDnsTooltip(this, '${escapeHtml(serviceDnsFull)}')"
+                                      data-dns-full="${escapeHtml(serviceDnsFull)}"
+                                      onmouseenter="showServiceDnsTooltip(this)"
                                       onmouseleave="scheduleHideServiceDnsTooltip()"
                                       style="cursor: pointer; position: relative;">
-                                    <span class="service-dns-short">${serviceDnsShort}</span>
+                                    <span class="service-dns-number" style="color: ${serviceDnsShort ? '#2ecc71' : '#95a5a6'}; font-weight: ${serviceDnsShort ? 'bold' : 'normal'};">${serviceDnsShort}</span>
                                 </span>
                             </td>
-                            <td>${labelsHtml}</td>
+                            <td>
+                                <span class="labels-count" 
+                                      data-app-name="${escapeHtml(appName)}" 
+                                      data-app-namespace="${escapeHtml(appNamespace)}"
+                                      data-labels='${JSON.stringify(appLabels).replace(/'/g, "&apos;")}'
+                                      onmouseenter="showLabelsTooltip(this)"
+                                      onmouseleave="scheduleHideLabelsTooltip()"
+                                      style="cursor: pointer; position: relative;">
+                                    <span class="labels-number" style="color: ${labelsCount > 0 ? '#2ecc71' : '#95a5a6'}; font-weight: ${labelsCount > 0 ? 'bold' : 'normal'};">${labelsCount}</span>
+                                </span>
+                            </td>
                             <td>${formatDate(appLastSnapshot)}</td>
                             <td>${formatDate(appCreated)}</td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-snapshot" onclick="showSnapshotModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')">
-                                        📸 Snapshot
-                                    </button>
-                                    <button class="btn-snapshot" onclick="showEditLabelsModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')">
-                                        ✏️ Labels
-                                    </button>
+                                    <button class="btn-snapshot" onclick="showSnapshotModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')" title="Create snapshot" style="width: 85px; padding: 5px 10px; font-size: 0.75rem;">Snapshot</button>
+                                    <button class="btn-snapshot" onclick="showEditLabelsModal('${escapeHtml(appName)}', '${escapeHtml(appNamespace)}')" title="Edit labels" style="width: 75px; padding: 5px 10px; font-size: 0.75rem;">Labels</button>
                                 </div>
                             </td>
                         </tr>
@@ -962,8 +994,12 @@ function hideVolumeGroupTooltip() {
 // Service DNS tooltip management
 let serviceDnsTooltipTimeout = null;
 let hideServiceDnsTooltipTimeout = null;
+let labelsTooltipTimeout = null;
+let hideLabelsTooltipTimeout = null;
 
-function showServiceDnsTooltip(element, fullDns) {
+function showServiceDnsTooltip(element) {
+    const fullDns = element.getAttribute('data-dns-full');
+    
     // Clear any existing hide timeout
     if (hideServiceDnsTooltipTimeout) {
         clearTimeout(hideServiceDnsTooltipTimeout);
@@ -1016,14 +1052,27 @@ function showServiceDnsTooltip(element, fullDns) {
         const tooltipRect = tooltip.getBoundingClientRect();
         tooltip.style.position = 'fixed';
         
-        // Always show tooltip above the element
-        tooltip.style.top = `${rect.top - tooltipRect.height - 5}px`;
-        tooltip.style.left = `${rect.left}px`;
+        // Calculate position above the element
+        let top = rect.top - tooltipRect.height - 5;
+        let left = rect.left;
+        
+        // Adjust if tooltip goes off screen vertically (show below instead)
+        if (top < 0) {
+            top = rect.bottom + 5;
+        }
         
         // Adjust if tooltip goes off screen horizontally
-        if (tooltipRect.right > window.innerWidth) {
-            tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = window.innerWidth - tooltipRect.width - 10;
         }
+        
+        // Ensure minimum left position
+        if (left < 10) {
+            left = 10;
+        }
+        
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
     }, 500); // 500ms delay for text selection
 }
 
@@ -1054,6 +1103,126 @@ function hideServiceDnsTooltip() {
     }
     
     const tooltip = document.getElementById('service-dns-tooltip');
+    if (tooltip) {
+        tooltip.remove();
+    }
+}
+
+// Labels tooltip management
+function showLabelsTooltip(element) {
+    const labels = JSON.parse(element.getAttribute('data-labels') || '{}');
+    // Clear any existing hide timeout
+    if (hideLabelsTooltipTimeout) {
+        clearTimeout(hideLabelsTooltipTimeout);
+        hideLabelsTooltipTimeout = null;
+    }
+    
+    // Clear any existing show timeout
+    if (labelsTooltipTimeout) {
+        clearTimeout(labelsTooltipTimeout);
+    }
+    
+    // Add a small delay before showing tooltip
+    labelsTooltipTimeout = setTimeout(() => {
+        // Don't show tooltip if no labels
+        if (!labels || Object.keys(labels).length === 0) {
+            return;
+        }
+        
+        // Remove any existing tooltip
+        const existingTooltip = document.getElementById('labels-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+        
+        // Create tooltip
+        const tooltip = document.createElement('div');
+        tooltip.id = 'labels-tooltip';
+        tooltip.className = 'info-tooltip';
+        
+        // Add hover handlers to keep tooltip visible
+        tooltip.addEventListener('mouseenter', () => {
+            if (hideLabelsTooltipTimeout) {
+                clearTimeout(hideLabelsTooltipTimeout);
+                hideLabelsTooltipTimeout = null;
+            }
+        });
+        tooltip.addEventListener('mouseleave', () => {
+            scheduleHideLabelsTooltip();
+        });
+        
+        // Build tooltip content
+        let tooltipContent = '<div class="tooltip-header">Labels</div>';
+        tooltipContent += '<div class="tooltip-body">';
+        
+        Object.entries(labels).forEach(([key, value]) => {
+            tooltipContent += `<div class="tooltip-item">
+                <span class="tooltip-item-label">${escapeHtml(key)}:</span>
+                <span class="tooltip-item-value">${escapeHtml(value)}</span>
+            </div>`;
+        });
+        
+        tooltipContent += '</div>';
+        
+        tooltip.innerHTML = tooltipContent;
+        
+        // Position tooltip
+        document.body.appendChild(tooltip);
+        const rect = element.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        tooltip.style.position = 'fixed';
+        
+        // Calculate position above the element
+        let top = rect.top - tooltipRect.height - 5;
+        let left = rect.left;
+        
+        // Adjust if tooltip goes off screen vertically
+        if (top < 0) {
+            top = rect.bottom + 5;
+        }
+        
+        // Adjust if tooltip goes off screen horizontally
+        if (left + tooltipRect.width > window.innerWidth) {
+            left = window.innerWidth - tooltipRect.width - 10;
+        }
+        
+        // Ensure minimum left position
+        if (left < 10) {
+            left = 10;
+        }
+        
+        tooltip.style.top = `${top}px`;
+        tooltip.style.left = `${left}px`;
+    }, 500); // 500ms delay for text selection
+}
+
+function scheduleHideLabelsTooltip() {
+    // Clear any existing show timeout
+    if (labelsTooltipTimeout) {
+        clearTimeout(labelsTooltipTimeout);
+        labelsTooltipTimeout = null;
+    }
+    
+    // Schedule hiding the tooltip after a short delay
+    hideLabelsTooltipTimeout = setTimeout(() => {
+        const tooltip = document.getElementById('labels-tooltip');
+        if (tooltip) {
+            tooltip.remove();
+        }
+    }, 200); // 200ms delay before hiding
+}
+
+function hideLabelsTooltip() {
+    if (labelsTooltipTimeout) {
+        clearTimeout(labelsTooltipTimeout);
+        labelsTooltipTimeout = null;
+    }
+    if (hideLabelsTooltipTimeout) {
+        clearTimeout(hideLabelsTooltipTimeout);
+        hideLabelsTooltipTimeout = null;
+    }
+    
+    const tooltip = document.getElementById('labels-tooltip');
     if (tooltip) {
         tooltip.remove();
     }
@@ -1211,7 +1380,14 @@ function renderSnapshots(data, container) {
                 <span id="snapshot-selected-count">0 selected</span>
             </div>
             <div class="actions">
-                <button class="btn btn-danger btn-sm" onclick="deleteBulkSnapshots()">🗑️ Delete Selected</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteBulkSnapshots()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                    </svg>Delete
+                </button>
                 <button class="btn btn-secondary btn-sm" onclick="clearSnapshotSelection()">Clear Selection</button>
             </div>
         </div>
@@ -1252,12 +1428,8 @@ function renderSnapshots(data, container) {
                             <td>${formatDate(snapCreated)}</td>
                             <td>
                                 <div class="action-buttons">
-                                    <button class="btn-restore" onclick="showRestoreModal('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}', '${escapeHtml(snapApplication)}')" title="Restore from snapshot" ${snapState !== 'Ready' ? 'disabled' : ''}>
-                                        ↻ Restore
-                                    </button>
-                                    <button class="btn-delete" onclick="deleteSnapshot('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}')" title="Delete snapshot">
-                                        🗑️ Delete
-                                    </button>
+                                    <button class="btn-restore" onclick="showRestoreModal('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}', '${escapeHtml(snapApplication)}')" title="Restore from snapshot" ${snapState !== 'Ready' ? 'disabled' : ''} style="width: 110px;">Restore</button>
+                                    <button class="btn-delete" onclick="deleteSnapshot('${escapeHtml(snapName)}', '${escapeHtml(snapNamespace)}')" title="Delete snapshot" style="width: 110px;">Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -1351,34 +1523,22 @@ function renderProtectionPlans(data, container) {
                         
                         // Show status - if deleting, indicate it's in progress
                         const displayStatus = isDeleting ? 
-                            '<span class="plan-status inactive">⏳ Deleting...</span>' : 
+                            '<span class="plan-status inactive">Deleting...</span>' : 
                             `<span class="plan-status ${statusClass}">${isEnabled ? 'Active' : 'Disabled'}</span>`;
                         
-                        // If plan is deleting, disable action buttons but still show them
-                        // This gives better UX than immediately jumping to force delete
+                        const triggerBtn = `<button class="btn-trigger" ${isDeleting ? 'disabled' : ''} onclick="${isDeleting ? '' : `triggerPlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')`}" title="${isDeleting ? 'Plan is being deleted' : 'Trigger Now'}" style="width: 90px;">Trigger</button>`;
+                        
+                        const historyBtn = `<button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History" style="width: 90px;">History</button>`;
+                        
                         const actionButtons = isDeleting ? `
-                            <button class="btn-trigger" disabled title="Plan is being deleted">
-                                ⚡ Trigger
-                            </button>
-                            <button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History">
-                                📊 History
-                            </button>
-                            <button class="btn-delete" disabled title="Deletion in progress... If stuck, refresh and use Force Delete">
-                                ⏳ Deleting...
-                            </button>
-                            <button class="btn-delete" onclick="forceDeletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Force Delete (if stuck)">
-                                ⚠️ Force
-                            </button>
+                            ${triggerBtn}
+                            ${historyBtn}
+                            <button class="btn-delete" disabled title="Deletion in progress... If stuck, refresh and use Force Delete" style="width: 90px;">Deleting...</button>
+                            <button class="btn-delete" onclick="forceDeletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Force Delete (if stuck)" style="width: 90px;">Force</button>
                         ` : `
-                            <button class="btn-trigger" onclick="triggerPlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Trigger Now">
-                                ⚡ Trigger
-                            </button>
-                            <button class="btn-history" onclick="showPlanHistory('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="View History">
-                                📊 History
-                            </button>
-                            <button class="btn-delete" onclick="deletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Delete Plan">
-                                🗑️ Delete
-                            </button>
+                            ${triggerBtn}
+                            ${historyBtn}
+                            <button class="btn-delete" onclick="deletePlan('${escapeHtml(planName)}', '${escapeHtml(planNamespace)}')" title="Delete Plan" style="width: 90px;">Delete</button>
                         `;
                         
                         return `
@@ -1637,23 +1797,30 @@ function updateLastUpdated() {
     }
 }
 
-function showToast(message, type = 'info') {
-    // Create toast element
+function showToast(message, type = 'info', persistent = false) {
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
     
-    // Add to body
+    toast.innerHTML = '';
+    
+    if (type === 'loading') {
+        const spinner = document.createElement('div');
+        spinner.className = 'notification-spinner';
+        toast.appendChild(spinner);
+    }
+    
+    const messageSpan = document.createElement('span');
+    messageSpan.textContent = message;
+    toast.appendChild(messageSpan);
+    
+    toast.className = `toast ${type} show`;
     document.body.appendChild(toast);
     
-    // Show toast
-    setTimeout(() => toast.classList.add('show'), 10);
-    
-    // Remove after 3 seconds
-    setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    if (!persistent) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 6000);
+    }
 }
 
 // Snapshot Creation with Modal
@@ -3389,42 +3556,42 @@ function closePlanHistoryModal() {
 
 const APP_TEMPLATES = {
     mysql: {
-        title: '🐬 Deploy MySQL',
+        title: 'Deploy MySQL',
         image: 'mysql:8.0',
         port: 3306,
         passwordLabel: 'MySQL Root Password',
         hasDatabase: true
     },
     postgresql: {
-        title: '🐘 Deploy PostgreSQL',
+        title: 'Deploy PostgreSQL',
         image: 'postgres:15',
         port: 5432,
         passwordLabel: 'PostgreSQL Password',
         hasDatabase: true
     },
     mongodb: {
-        title: '🍃 Deploy MongoDB',
+        title: 'Deploy MongoDB',
         image: 'mongo:7.0',
         port: 27017,
         passwordLabel: 'MongoDB Root Password',
         hasDatabase: false
     },
     redis: {
-        title: '🔴 Deploy Redis',
+        title: 'Deploy Redis',
         image: 'redis:7.2',
         port: 6379,
         passwordLabel: 'Redis Password',
         hasDatabase: false
     },
     elasticsearch: {
-        title: '🔍 Deploy Elasticsearch',
+        title: 'Deploy Elasticsearch',
         image: 'elasticsearch:8.11.0',
         port: 9200,
         passwordLabel: 'Elastic Password',
         hasDatabase: false
     },
     cassandra: {
-        title: '💎 Deploy Cassandra',
+        title: 'Deploy Cassandra',
         image: 'cassandra:4.1',
         port: 9042,
         passwordLabel: 'Cassandra Password',
@@ -4064,7 +4231,7 @@ async function deployApplication() {
         
         const result = await response.json();
         
-        alert(`✅ Application deployed successfully!\n\nApplication: ${name}\nNamespace: ${namespace}\n\n${result.message || 'Deployment is in progress.'}`);
+        showToast(`✓ Application deployed successfully!\n\nApplication: ${name}\nNamespace: ${namespace}\n\n${result.message || 'Deployment is in progress.'}`, 'success');
         
         closeDeployModal();
         
@@ -4076,7 +4243,7 @@ async function deployApplication() {
         
     } catch (error) {
         console.error('Deployment error:', error);
-        alert(`❌ Deployment failed: ${error.message}`);
+        showToast(`✗ Deployment failed: ${error.message}`, 'error');
     } finally {
         btnText.textContent = originalText;
         document.querySelector('#deploy-modal .btn-primary').disabled = false;

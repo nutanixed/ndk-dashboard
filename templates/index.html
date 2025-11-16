@@ -12,12 +12,6 @@
         <nav class="navbar">
             <div class="nav-container">
                 <div class="nav-actions-menu">
-                    <button id="refreshBtn" class="nav-icon-btn" title="Refresh Dashboard">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                        </svg>
-                        <span class="nav-btn-label">Refresh</span>
-                    </button>
                     <a href="{{ url_for('main.admin') }}" class="nav-icon-btn" title="Admin Panel">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
@@ -25,6 +19,20 @@
                         </svg>
                         <span class="nav-btn-label">Admin</span>
                     </a>
+                    <a href="{{ url_for('main.resources') }}" class="nav-icon-btn" title="Resources">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                        <span class="nav-btn-label">Resources</span>
+                    </a>
+                    <button id="refreshBtn" class="nav-icon-btn" title="Refresh Dashboard">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                        </svg>
+                        <span class="nav-btn-label">Refresh</span>
+                    </button>
                     <a href="{{ url_for('auth.logout') }}" class="nav-icon-btn" title="Logout">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -107,7 +115,7 @@
         <!-- Tabs -->
         <div class="tabs">
             <button class="tab-btn active" data-tab="applications">Applications</button>
-            <button class="tab-btn" data-tab="deploy">🚀 Deploy</button>
+            <button class="tab-btn" data-tab="deploy">Deploy</button>
             <button class="tab-btn" data-tab="snapshots">Snapshots</button>
             <button class="tab-btn" data-tab="storageclusters">Storage Clusters</button>
             <button class="tab-btn" data-tab="protectionplans">Protection Plans</button>
@@ -133,79 +141,51 @@
             <div class="section-header">
                 <h2>Deploy New Application</h2>
                 <div style="position: relative; display: inline-block;">
-                    <button class="btn btn-secondary" onclick="toggleYAMLDropdown(event)" style="display: flex; align-items: center; gap: 8px;">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="7 10 12 15 17 10"></polyline>
-                            <line x1="12" y1="15" x2="12" y2="3"></line>
-                        </svg>
-                        Download YAML
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                    </button>
+                    <button class="btn btn-secondary" onclick="toggleYAMLDropdown(event)">Download YAML</button>
                     <div id="yaml-dropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 4px; background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); min-width: 180px; z-index: 1000;">
-                        <div onclick="downloadYAML('mysql')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🐬</span>
-                            <span>MySQL</span>
-                        </div>
-                        <div onclick="downloadYAML('postgresql')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🐘</span>
-                            <span>PostgreSQL</span>
-                        </div>
-                        <div onclick="downloadYAML('mongodb')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;">
-                            <span>🍃</span>
-                            <span>MongoDB</span>
-                        </div>
-                        <div onclick="downloadYAML('elasticsearch')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                            <span>🔍</span>
-                            <span>Elasticsearch</span>
-                        </div>
+                        <div onclick="downloadYAML('mysql')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9;">MySQL</div>
+                        <div onclick="downloadYAML('postgresql')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9;">PostgreSQL</div>
+                        <div onclick="downloadYAML('mongodb')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f1f5f9;">MongoDB</div>
+                        <div onclick="downloadYAML('elasticsearch')" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'" style="padding: 10px 16px; cursor: pointer;">Elasticsearch</div>
                     </div>
                 </div>
             </div>
             <p class="section-description" style="margin-top: -0.5rem; margin-bottom: 1.5rem;">Deploy stateful applications with automatic NDK protection</p>
             
             <div class="deploy-templates">
-                <h3 class="templates-title">📦 Application Templates</h3>
+                <h3 class="templates-title">Application Templates</h3>
                 <div class="templates-grid">
                     <div class="template-card" onclick="showDeployModal('mysql')">
-                        <div class="template-icon">🐬</div>
                         <h4>MySQL</h4>
                         <p>Relational database with StatefulSet</p>
                         <span class="template-badge">Popular</span>
                     </div>
                     
                     <div class="template-card" onclick="showDeployModal('postgresql')">
-                        <div class="template-icon">🐘</div>
                         <h4>PostgreSQL</h4>
                         <p>Advanced relational database</p>
                         <span class="template-badge">Popular</span>
                     </div>
                     
                     <div class="template-card" onclick="showDeployModal('mongodb')">
-                        <div class="template-icon">🍃</div>
                         <h4>MongoDB</h4>
                         <p>NoSQL document database</p>
                         <span class="template-badge">NoSQL</span>
                     </div>
                     
                     <div class="template-card" onclick="showDeployModal('redis')" style="display: none;">
-                        <div class="template-icon">🔴</div>
                         <h4>Redis</h4>
                         <p>In-memory data store</p>
                         <span class="template-badge">Cache</span>
                     </div>
                     
                     <div class="template-card" onclick="showDeployModal('elasticsearch')">
-                        <div class="template-icon">🔍</div>
                         <h4>Elasticsearch</h4>
                         <p>Search and analytics engine</p>
                         <span class="template-badge">Search</span>
                     </div>
                     
                     <div class="template-card" onclick="showDeployModal('cassandra')" style="display: none;">
-                        <div class="template-icon">💎</div>
                         <h4>Cassandra</h4>
                         <p>Distributed NoSQL database</p>
                         <span class="template-badge">NoSQL</span>
@@ -300,7 +280,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeSnapshotModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-primary" onclick="createSnapshotWithExpiration()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">Create Snapshot</button>
+                <button class="btn btn-primary" onclick="createSnapshotWithExpiration()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Create Snapshot</button>
             </div>
         </div>
     </div>
@@ -381,7 +361,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" onclick="closeRestoreModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button type="button" class="btn btn-primary" onclick="restoreSnapshot()" id="restore-button" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">Restore</button>
+                <button type="button" class="btn btn-primary" onclick="restoreSnapshot()" id="restore-button" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Restore</button>
             </div>
         </div>
     </div>
@@ -507,7 +487,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeBulkSnapshotModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-primary" onclick="createBulkSnapshotsWithExpiration()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">Create Snapshots</button>
+                <button class="btn btn-primary" onclick="createBulkSnapshotsWithExpiration()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Create Snapshots</button>
             </div>
         </div>
     </div>
@@ -731,7 +711,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closePlanModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-primary" onclick="savePlan()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
+                <button class="btn btn-primary" onclick="savePlan()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">
                     <span id="plan-save-text">Create Plan</span>
                 </button>
             </div>
@@ -946,7 +926,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeDeployModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-primary" onclick="deployApplication()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
+                <button class="btn btn-primary" onclick="deployApplication()" style="padding: 10px 24px; font-weight: 500;">
                     <span id="deploy-btn-text">Deploy Application</span>
                 </button>
             </div>
@@ -1022,7 +1002,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeEditLabelsModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-primary" onclick="saveApplicationLabels()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none;">
+                <button class="btn btn-primary" onclick="saveApplicationLabels()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">
                     Save Labels
                 </button>
             </div>
@@ -1032,7 +1012,7 @@
     <!-- Delete Protection Plan Confirmation Modal -->
     <div id="delete-plan-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
@@ -1051,16 +1031,16 @@
                 <button class="modal-close" onclick="closeDeletePlanModal()" aria-label="Close" style="color: white; opacity: 1; font-size: 28px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15);">✕</button>
             </div>
             <div class="modal-body" style="padding: 28px;">
-                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #fca5a5;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <span style="font-size: 0.8125rem; color: #b91c1c; font-weight: 500;">Warning</span>
+                        <span style="font-size: 0.8125rem; color: #6d28d9; font-weight: 500;">Warning</span>
                     </div>
-                    <p style="margin: 0; font-size: 0.9375rem; color: #991b1b;">This will not delete existing snapshots created by this plan.</p>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #5b21b6;">This will not delete existing snapshots created by this plan.</p>
                 </div>
                 
                 <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
@@ -1072,7 +1052,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeDeletePlanModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmDeletePlan()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Plan</button>
+                <button class="btn btn-danger" onclick="confirmDeletePlan()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Delete Plan</button>
             </div>
         </div>
     </div>
@@ -1080,7 +1060,7 @@
     <!-- Delete Snapshot Confirmation Modal -->
     <div id="delete-snapshot-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
@@ -1099,16 +1079,16 @@
                 <button class="modal-close" onclick="closeDeleteSnapshotModal()" aria-label="Close" style="color: white; opacity: 1; font-size: 28px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15);">✕</button>
             </div>
             <div class="modal-body" style="padding: 28px;">
-                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #fca5a5;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <span style="font-size: 0.8125rem; color: #b91c1c; font-weight: 500;">Warning</span>
+                        <span style="font-size: 0.8125rem; color: #6d28d9; font-weight: 500;">Warning</span>
                     </div>
-                    <p style="margin: 0; font-size: 0.9375rem; color: #991b1b;">This action cannot be undone. The snapshot will be permanently deleted.</p>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #5b21b6;">This action cannot be undone. The snapshot will be permanently deleted.</p>
                 </div>
                 
                 <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
@@ -1120,7 +1100,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeDeleteSnapshotModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmDeleteSnapshot()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Snapshot</button>
+                <button class="btn btn-danger" onclick="confirmDeleteSnapshot()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Delete Snapshot</button>
             </div>
         </div>
     </div>
@@ -1128,7 +1108,7 @@
     <!-- Bulk Delete Snapshots Confirmation Modal -->
     <div id="bulk-delete-snapshots-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
@@ -1147,16 +1127,16 @@
                 <button class="modal-close" onclick="closeBulkDeleteSnapshotsModal()" aria-label="Close" style="color: white; opacity: 1; font-size: 28px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15);">✕</button>
             </div>
             <div class="modal-body" style="padding: 28px;">
-                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #fca5a5;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
                             <line x1="12" y1="8" x2="12" y2="12"></line>
                             <line x1="12" y1="16" x2="12.01" y2="16"></line>
                         </svg>
-                        <span style="font-size: 0.8125rem; color: #b91c1c; font-weight: 500;">Warning</span>
+                        <span style="font-size: 0.8125rem; color: #6d28d9; font-weight: 500;">Warning</span>
                     </div>
-                    <p style="margin: 0; font-size: 0.9375rem; color: #991b1b;">This action cannot be undone. All selected snapshots will be permanently deleted.</p>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #5b21b6;">This action cannot be undone. All selected snapshots will be permanently deleted.</p>
                 </div>
                 
                 <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
@@ -1166,7 +1146,7 @@
             </div>
             <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick="closeBulkDeleteSnapshotsModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmBulkDeleteSnapshots()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border: none; color: white;">Delete Snapshots</button>
+                <button class="btn btn-danger" onclick="confirmBulkDeleteSnapshots()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Delete Snapshots</button>
             </div>
         </div>
     </div>
