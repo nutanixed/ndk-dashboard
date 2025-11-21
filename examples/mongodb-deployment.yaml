@@ -1,0 +1,140 @@
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ndk-dev
+
+---
+# Secret for MongoDB credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-credentials
+  namespace: ndk-dev
+  labels:
+    app: mongodb
+type: Opaque
+stringData:
+  password: "your-secure-password"
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: ndk-dev
+  labels:
+    app: mongodb
+spec:
+  ports:
+  - port: 27017
+    name: mongodb
+  clusterIP: None
+  selector:
+    app: mongodb
+
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: ndk-dev
+  labels:
+    app: mongodb
+spec:
+  serviceName: mongodb
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-credentials
+              key: password
+        volumeMounts:
+        - name: data
+          mountPath: /data/db
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+      labels:
+        app: mongodb
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: nutanix-volume
+      resources:
+        requests:
+          storage: 50Gi
+
+---
+# NDK Application CR (Enable NDK Data Services)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: Application
+metadata:
+  name: mongodb
+  namespace: ndk-dev
+  labels:
+    app.kubernetes.io/managed-by: ndk-dashboard
+    tier: database
+spec:
+  applicationSelector:
+    resourceLabelSelectors:
+    - labelSelector:
+        matchLabels:
+          app: mongodb
+  start: true
+  useExistingConfig: false
+
+---
+# JobScheduler for Protection Plan
+apiVersion: scheduler.nutanix.com/v1alpha1
+kind: JobScheduler
+metadata:
+  name: mongodb-plan-scheduler
+  namespace: ndk-dev
+spec:
+  cronSchedule: "0 3 * * *"  # Daily at 3 AM
+
+---
+# ProtectionPlan
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: ProtectionPlan
+metadata:
+  name: mongodb-plan
+  namespace: ndk-dev
+  annotations:
+    ndk-dashboard/selection-mode: by-name
+spec:
+  scheduleName: mongodb-plan-scheduler
+  retentionPolicy:
+    retentionCount: 10
+  applications:
+  - mongodb
+
+---
+# AppProtectionPlan (Links Application to ProtectionPlan)
+apiVersion: dataservices.nutanix.com/v1alpha1
+kind: AppProtectionPlan
+metadata:
+  name: mongodb-mongodb-plan
+  namespace: ndk-dev
+spec:
+  applicationName: mongodb
+  protectionPlanNames:
+  - mongodb-plan

@@ -1,0 +1,1797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - NDK Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v={{ cache_bust }}">
+    <style>
+        .admin-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #fbbf24;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            box-shadow: var(--shadow-md);
+            transition: all 0.3s;
+        }
+        .admin-warning:hover {
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-1px);
+        }
+        .admin-warning-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: white;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.2);
+        }
+        .admin-warning-text {
+            flex: 1;
+        }
+        .admin-warning-text h3 {
+            margin: 0 0 4px 0;
+            color: #92400e;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .admin-warning-text p {
+            margin: 0;
+            color: #78350f;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .admin-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border-light);
+            padding-bottom: 0;
+            overflow-x: auto;
+        }
+        .admin-tab-btn {
+            padding: 16px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            transition: all 0.3s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+            margin-bottom: -2px;
+        }
+        .admin-tab-btn:hover {
+            color: var(--brand-primary);
+            background: none;
+            border-radius: 0;
+        }
+        .admin-tab-btn.active {
+            color: var(--brand-primary);
+            border-bottom-color: var(--brand-primary);
+            font-weight: 600;
+            background: linear-gradient(to bottom, rgba(79, 70, 229, 0.05), transparent);
+        }
+        .admin-tab-content {
+            display: none;
+        }
+        .admin-tab-content.active {
+            display: block;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .resource-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+        }
+        .resource-table th {
+            background: linear-gradient(135deg, var(--neutral-100) 0%, var(--neutral-50) 100%);
+            padding: 12px 14px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 2px solid var(--border-medium);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .resource-table td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-primary);
+        }
+        .resource-table tr:last-child td {
+            border-bottom: none;
+        }
+        .resource-table tbody tr {
+            transition: all 0.2s;
+        }
+        .resource-table tbody tr:hover {
+            background: var(--hover-overlay);
+        }
+        .resource-table td:last-child {
+            white-space: normal;
+            min-width: 140px;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            border: 1px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 4px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: normal;
+            box-shadow: none;
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+        }
+        .action-btn:active {
+            transform: translateY(0);
+        }
+        .btn-edit {
+            background: rgba(14, 165, 233, 0.1);
+            color: #0ea5e9;
+            border-color: rgba(14, 165, 233, 0.2);
+        }
+        .btn-edit:hover {
+            background: rgba(14, 165, 233, 0.2);
+            border-color: rgba(14, 165, 233, 0.3);
+        }
+        .btn-delete {
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--brand-primary);
+            border-color: rgba(79, 70, 229, 0.2);
+        }
+        .btn-delete:hover {
+            background: rgba(79, 70, 229, 0.15);
+            border-color: rgba(79, 70, 229, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-force-delete {
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--brand-primary);
+            border-color: rgba(79, 70, 229, 0.2);
+        }
+        .btn-force-delete:hover {
+            background: rgba(79, 70, 229, 0.15);
+            border-color: rgba(79, 70, 229, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-delete-app-only {
+            background: rgba(79, 70, 229, 0.1);
+            color: var(--brand-primary);
+            border-color: rgba(79, 70, 229, 0.2);
+        }
+        .btn-delete-app-only:hover {
+            background: rgba(79, 70, 229, 0.15);
+            border-color: rgba(79, 70, 229, 0.4);
+            transform: translateY(-1px);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInOverlay 0.2s ease-in-out;
+        }
+        @keyframes fadeInOverlay {
+            from { opacity: 0; backdrop-filter: blur(0px); }
+            to { opacity: 1; backdrop-filter: blur(4px); }
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 0;
+            max-width: 520px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            border: 1px solid var(--border-light);
+            animation: slideUpModal 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes slideUpModal {
+            from { 
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .modal-close {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-light);
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            padding: 0;
+        }
+        .modal-close:hover {
+            color: var(--text-primary);
+            background: var(--border-light);
+            transform: rotate(90deg);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-medium);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px var(--focus-ring);
+        }
+        .form-group input:hover,
+        .form-group select:hover {
+            border-color: var(--brand-primary);
+        }
+        .form-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 1px solid transparent;
+        }
+        .badge-active {
+            background: rgba(5, 150, 105, 0.1);
+            color: var(--success);
+            border-color: rgba(5, 150, 105, 0.2);
+        }
+        .badge-suspended {
+            background: rgba(217, 119, 6, 0.1);
+            color: var(--warning);
+            border-color: rgba(217, 119, 6, 0.2);
+        }
+        .loading {
+            text-align: center;
+            padding: 60px 40px;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 40px;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            color: var(--brand-primary);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 10px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .back-link:hover {
+            background: var(--hover-overlay);
+            transform: translateX(-4px);
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-actions-menu">
+                <button id="refreshBtn" class="nav-icon-btn" title="Refresh Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                    </svg>
+                    <span class="nav-btn-label">Refresh</span>
+                </button>
+                <a href="{{ url_for('main.index') }}" class="nav-icon-btn" title="Dashboard">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="7" height="7"/>
+                        <rect x="14" y="3" width="7" height="7"/>
+                        <rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/>
+                    </svg>
+                    <span class="nav-btn-label">Dashboard</span>
+                </a>
+                <a href="{{ url_for('auth.logout') }}" class="nav-icon-btn" title="Logout">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span class="nav-btn-label">Logout</span>
+                </a>
+            </div>
+            
+            <div class="nav-content">
+                <svg class="nutanix-logo" viewBox="0 0 1064.95 134.32" xmlns="http://www.w3.org/2000/svg">
+                    <style type="text/css">.st0{fill:#131313;}</style>
+                    <path class="st0" d="M476.14,28.26h-53.43c-0.05,0-0.08,0.04-0.08,0.08v103.97c0,1.1-0.9,2-2,2h-25.81c-1.1,0-2-0.9-2-2V28.34c0-0.05-0.04-0.08-0.08-0.08h-53.28c-1.1,0-2-0.9-2-2V2.98c0-1.1,0.9-2,2-2h136.68c1.1,0,2,0.9,2,2v23.28C478.14,27.36,477.25,28.26,476.14,28.26z M855.74,0.98h-25.81c-1.1,0-2,0.9-2,2v129.34c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2V2.98C857.74,1.87,856.84,0.98,855.74,0.98z M1064.31,131.08c0.58,0.5,0.79,1.32,0.52,2.04s-0.96,1.2-1.73,1.2h-39.75c-0.44,0-0.87-0.16-1.21-0.45l-43.67-37.79c-0.4-0.35-0.64-0.86-0.64-1.39c0-0.54,0.23-1.04,0.64-1.39l19.87-17.2c0.69-0.6,1.72-0.6,2.41,0L1064.31,131.08z M998.36,59.2c0.35,0.3,0.78,0.45,1.21,0.45c0.43,0,0.86-0.15,1.21-0.45l63.54-54.99c0.58-0.5,0.79-1.32,0.52-2.04c-0.27-0.72-0.96-1.2-1.73-1.2h-39.75c-0.44,0-0.87,0.16-1.21,0.45l-43.67,37.79c-0.4,0.35-0.64,0.86-0.64,1.39c0,0.54,0.23,1.04,0.64,1.39L998.36,59.2z M990.04,67.65c0-0.54-0.23-1.04-0.64-1.39L914.49,1.43c-0.33-0.29-0.76-0.45-1.21-0.45h-39.75c-0.77,0-1.46,0.48-1.73,1.2s-0.06,1.53,0.52,2.04l73.23,63.37c0.04,0.03,0.04,0.09,0,0.13l-73.23,63.37c-0.58,0.5-0.79,1.32-0.52,2.04s0.96,1.2,1.73,1.2h39.75c0.44,0,0.87-0.16,1.21-0.45l74.91-64.83C989.81,68.69,990.04,68.18,990.04,67.65z M29.81,44.32c0-0.07,0.08-0.11,0.13-0.07c3.92,3.51,93.13,83.39,97.43,86.77c3.8,2.98,8.19,4.83,13.91,3.99c7.4-0.9,15.54-7.22,15.54-17.86V2.98c0-1.1-0.9-2-2-2h-25.81c-1.1,0-2,0.9-2,2v87.91c0,0.07-0.08,0.11-0.13,0.07c-3.92-3.51-93.13-83.39-97.43-86.77c-3.8-2.98-8.19-4.83-13.91-3.99C8.14,1.1,0,7.43,0,18.06v114.25c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2L29.81,44.32z M684.96,44.32c0-0.07,0.08-0.11,0.13-0.07c3.92,3.51,93.13,83.39,97.43,86.77c3.8,2.98,8.19,4.83,13.91,3.99c7.4-0.9,15.54-7.22,15.54-17.86V2.98c0-1.1-0.9-2-2-2h-25.81c-1.1,0-2,0.9-2,2v87.91c0,0.07-0.08,0.11-0.13,0.07c-3.92-3.51-93.13-83.39-97.43-86.77c-3.8-2.98-8.19-4.83-13.91-3.99c-7.4,0.9-15.54,7.23-15.54,17.86v114.25c0,1.1,0.9,2,2,2h25.81c1.1,0,2-0.9,2-2V44.32z M255.72,136.96c16.08-0.04,34-0.95,45-7.44c14.64-8.64,21.76-20.64,21.76-36.67l0.01-89.87c0-1.1-0.9-2-2-2h-26.06c-1.1,0-2,0.9-2,2l-0.01,88.12c-0.25,17.54-21.98,17.72-37.66,17.72h-14.25c-15.68,0-37.4-0.17-37.66-17.72l-0.01-88.12c0-1.1-0.9-2-2-2h-26.06c-1.1,0-2,0.9-2,2l0.01,89.87c0,16.03,7.12,28.03,21.76,36.67c11,6.49,28.92,7.41,45,7.44H255.72z M642.86,131.31c0.41,0.58,0.46,1.34,0.14,1.98c-0.32,0.63-0.97,1.03-1.68,1.03h-31.87c-0.64,0-1.24-0.31-1.61-0.84l-18.59-26.58c-0.02-0.02-0.04-0.04-0.07-0.04h-95.56c-0.03,0-0.05,0.01-0.07,0.04l-18.66,26.61c-0.35,0.51-0.93,0.81-1.54,0.81h-31.87c-0.71,0-1.36-0.4-1.68-1.03s-0.27-1.4,0.14-1.98c0,0,81.05-115.69,86.05-122.6S536.02,0,541.44,0c5.97,0,10.58,2.23,15.02,8.18L642.86,131.31z M569.84,79.45L541.48,39.3c-0.03-0.05-0.1-0.05-0.14,0l-28.37,40.15c-0.04,0.06,0,0.13,0.07,0.13h56.73C569.84,79.58,569.88,79.5,569.84,79.45z"/>
+                </svg>
+                <h1>Admin Panel</h1>
+                <p class="nav-subtitle">Manage Applications & Protection Plans</p>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <a href="{{ url_for('main.index') }}" class="back-link">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Back to Dashboard</span>
+        </a>
+
+        <div class="admin-warning">
+            <div class="admin-warning-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </div>
+            <div class="admin-warning-text">
+                <h3>Admin Area - Use with Caution</h3>
+                <p>Deleting applications is permanent and cannot be undone. Always verify before taking action.</p>
+            </div>
+        </div>
+
+        <!-- Admin Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab-btn active" onclick="switchTab('applications')">Applications</button>
+            <button class="admin-tab-btn" onclick="switchTab('restores')">Restore Cleanup</button>
+            <button class="admin-tab-btn" onclick="switchTab('settings')">Settings</button>
+        </div>
+
+        <!-- Applications Tab -->
+        <div class="admin-tab-content active" id="applications-tab">
+            <div class="section-header">
+                <h2>Manage Applications</h2>
+                <div class="filter-controls">
+                    <select id="app-namespace-filter" class="filter-select">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                    <input type="text" id="search-apps" class="search-input" placeholder="Search applications...">
+                </div>
+            </div>
+            <div id="applications-loading" class="loading">Loading applications...</div>
+            <div id="applications-content"></div>
+        </div>
+
+        <!-- Restore Cleanup Tab -->
+        <div class="admin-tab-content" id="restores-tab">
+            <div class="section-header">
+                <h2>Restore Job Cleanup</h2>
+                <div class="filter-controls">
+                    <select id="restore-namespace-filter" class="filter-select">
+                        <option value="all">All Namespaces</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="showCleanupAllModal()" style="margin-left: 12px;">Cleanup All</button>
+                </div>
+            </div>
+            
+            <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <div style="display: flex; align-items: start; gap: 16px;">
+                    <div style="width: 48px; height: 48px; background: #3b82f6; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 16px; font-weight: 600;">About Restore Jobs</h3>
+                        <p style="margin: 0 0 8px 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+                            ApplicationSnapshotRestore resources are created when you restore a snapshot. Once completed, they remain in the cluster but serve no further purpose.
+                        </p>
+                        <p style="margin: 0; color: #1e40af; font-size: 14px; line-height: 1.6;">
+                            <strong>Recommendation:</strong> Periodically clean up completed restore jobs to keep your cluster tidy.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="restores-loading" class="loading">Loading restore jobs...</div>
+            <div id="restores-content"></div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div class="admin-tab-content" id="settings-tab">
+            <div class="section-header">
+                <h2>Feature Settings</h2>
+            </div>
+
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-tertiary);">
+                    <div>
+                        <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">Deploy Function</h3>
+                        <p style="margin: 0; font-size: 14px; color: var(--text-secondary);">Enable or disable the application deployment feature in the dashboard</p>
+                    </div>
+                    <div style="display: flex; align-items: center;">
+                        <label style="display: flex; align-items: center; cursor: pointer; gap: 12px;">
+                            <div style="position: relative; width: 50px; height: 28px;">
+                                <input type="checkbox" id="deploy-toggle" style="display: none;" onchange="toggleDeployFeature()">
+                                <div id="deploy-toggle-bg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #ccc; border-radius: 14px; transition: all 0.3s;"></div>
+                                <div id="deploy-toggle-btn" style="position: absolute; top: 2px; left: 2px; width: 24px; height: 24px; background: white; border-radius: 50%; transition: all 0.3s; box-shadow: var(--shadow-sm);"></div>
+                            </div>
+                            <span id="deploy-status-label" style="font-weight: 500; color: var(--text-primary);">Enabled</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 24px; padding: 16px; background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border: 1px solid #3b82f6; border-radius: 12px;">
+                <div style="display: flex; align-items: start; gap: 12px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <div style="font-size: 14px; color: #1e40af; line-height: 1.6;">
+                        <strong>Note:</strong> Disabling the Deploy function will hide the Deploy tab from all users on the dashboard. Changes take effect immediately upon refresh.
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 32px; border-top: 2px solid var(--border-light); padding-top: 24px;">
+                <h3 style="margin: 0 0 20px 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">Task App Database Management</h3>
+                
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-sm);">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Select Deployment</label>
+                            <select id="taskapp-deployment-select" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;" onchange="loadDeploymentSettings()">
+                                <option value="">Loading deployments...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">SQL Host / DNS Name</label>
+                            <input type="text" id="taskapp-db-host" placeholder="mysql-0.mysql.ndk-dev.svc.cluster.local" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Database Name</label>
+                            <input type="text" id="taskapp-db-name" placeholder="mydb" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Database Password</label>
+                            <input type="password" id="taskapp-db-password" placeholder="••••••••" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                        </div>
+                    </div>
+
+                    <div id="taskapp-status" style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border-light); border-radius: 8px; background: var(--bg-tertiary); margin-bottom: 16px;">
+                        <div>
+                            <h4 style="margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: var(--text-primary);">Database Status</h4>
+                            <p id="taskapp-status-text" style="margin: 0; font-size: 13px; color: var(--text-secondary);">Checking connection...</p>
+                        </div>
+                        <div id="taskapp-status-badge" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #fca5a5; color: #991b1b; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                            <span style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></span>
+                            <span>Disconnected</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center;">
+                        <button onclick="initializeTaskAppDatabase()" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14"></path>
+                                <path d="M5 12h14"></path>
+                            </svg>
+                            Initialize Database
+                        </button>
+                        <button onclick="refreshTaskAppStatus()" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21.5 2v6h-6M2.5 22v-6h6"></path>
+                                <path d="M2 11.5a10 10 0 0 1 18.8-4.3"></path>
+                                <path d="M22 4.5a10 10 0 0 1-18.8 4.2"></path>
+                            </svg>
+                            Refresh Status
+                        </button>
+                        <button onclick="saveTaskAppDatabaseSettings()" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 16px; padding: 16px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #86efac; border-radius: 12px; display: none;" id="taskapp-message">
+                    <div style="display: flex; align-items: start; gap: 12px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <div style="font-size: 14px; color: #166534;">
+                            <p id="taskapp-message-text" style="margin: 0;"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Confirm Action</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Please review before proceeding</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeDeleteModal()" aria-label="Close" style="color: white; opacity: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15); padding: 0; border: none; cursor: pointer;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div id="delete-modal-body">
+                    <p>Are you sure you want to delete this resource?</p>
+                    <p style="color: #f44336; font-weight: 500;">This action cannot be undone.</p>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
+                <button type="button" class="btn btn-delete" onclick="confirmDelete()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Delete</button>
+                <button type="button" class="btn btn-force-delete" onclick="confirmForceDelete()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Force Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Progress Modal -->
+    <div id="deleteProgressModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Delete in Progress</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Please wait while we delete the application</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeDeleteProgressModal()" aria-label="Close" style="color: white; opacity: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15); padding: 0; border: none; cursor: pointer;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 32px;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                        <span style="font-size: 0.875rem; color: #6d28d9; font-weight: 500;">Application</span>
+                    </div>
+                    <p style="margin: 0; font-size: 1.125rem; font-weight: 600; color: #5b21b6;" id="delete-progress-app-name"></p>
+                </div>
+                
+                <div style="background: #fef3c7; border-radius: 12px; padding: 16px; margin-bottom: 28px; border: 1px solid #fde68a;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #92400e;">Namespace: <strong id="delete-progress-namespace"></strong></span>
+                    </div>
+                </div>
+                
+                <!-- Status Message -->
+                <div id="delete-status-message" style="font-size: 0.875rem; color: #475569; padding: 16px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #4f46e5; line-height: 1.6;">
+                    <div style="display: flex; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <div>
+                            <strong style="color: #1e293b;">Status:</strong>
+                            <span id="delete-progress-status" style="display: block; margin-top: 4px;">Starting delete operation...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="delete-progress-message" style="margin-top: 16px; padding: 15px; background: #f5f5f5; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">
+                    Initiating deletion...
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 20px 32px; background: #f8fafc; border-radius: 0 0 12px 12px;">
+                <button type="button" class="btn btn-secondary" id="delete-progress-close-btn" onclick="closeDeleteProgressModal()" style="display: none; padding: 10px 24px; font-weight: 500;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleanup All Restores Confirmation Modal -->
+    <div id="cleanup-all-restores-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Cleanup All Restores</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Confirm cleanup operation</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeCleanupAllModal()" aria-label="Close" style="color: white; opacity: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15); padding: 0; border: none; cursor: pointer;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 28px;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #6d28d9; font-weight: 500;">Warning</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #5b21b6;">This action cannot be undone. All completed restore jobs will be permanently deleted.</p>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.8125rem; color: #64748b; margin-bottom: 4px;">Number of Completed Restores</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #1e293b;" id="cleanup-all-count">0</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeCleanupAllModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
+                <button class="btn btn-delete" onclick="confirmCleanupAll()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Cleanup All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cleanup Progress Modal -->
+    <div id="cleanupProgressModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Cleanup in Progress</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Please wait while we cleanup restore jobs</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeCleanupProgressModal()" aria-label="Close" style="color: white; opacity: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15); padding: 0; border: none; cursor: pointer;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 32px;">
+                <!-- Status Message -->
+                <div id="cleanup-status-message" style="font-size: 0.875rem; color: #475569; padding: 16px; background: #f8fafc; border-radius: 8px; border-left: 4px solid #4f46e5; line-height: 1.6; margin-bottom: 16px;">
+                    <div style="display: flex; gap: 8px;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="16" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                        </svg>
+                        <div>
+                            <strong style="color: #1e293b;">Status:</strong>
+                            <span id="cleanup-progress-status" style="display: block; margin-top: 4px;">Starting cleanup operation...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="cleanup-progress-message" style="padding: 15px; background: #f5f5f5; border-radius: 6px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">
+Initiating cleanup...
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 20px 32px; background: #f8fafc; border-radius: 0 0 12px 12px;">
+                <button type="button" class="btn btn-secondary" id="cleanup-progress-close-btn" onclick="closeCleanupProgressModal()" style="display: none; padding: 10px 24px; font-weight: 500;">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Individual Restore Confirmation Modal -->
+    <div id="delete-restore-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border-radius: 12px 12px 0 0; padding: 24px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 48px; height: 48px; background: rgba(255,255,255,0.2); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.5rem; font-weight: 600;">Delete Restore Job</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 0.875rem; opacity: 0.9;">Confirm deletion operation</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeDeleteRestoreModal()" aria-label="Close" style="color: white; opacity: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: all 0.2s; background: rgba(255,255,255,0.15); padding: 0; border: none; cursor: pointer;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 28px;">
+                <div style="background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid #c4b5fd;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="12" y1="8" x2="12" y2="12"></line>
+                            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #6d28d9; font-weight: 500;">Warning</span>
+                    </div>
+                    <p style="margin: 0; font-size: 0.9375rem; color: #5b21b6;">This action cannot be undone. The restore job will be permanently deleted.</p>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+                    <div style="font-size: 0.8125rem; color: #64748b; margin-bottom: 4px;">Restore Job Name</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #1e293b;" id="delete-restore-name">-</div>
+                </div>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 14px; border: 1px solid #e2e8f0;">
+                    <div style="font-size: 0.8125rem; color: #64748b; margin-bottom: 4px;">Namespace</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: #1e293b;" id="delete-restore-namespace">-</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 28px; background: #f8fafc; border-radius: 0 0 12px 12px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="closeDeleteRestoreModal()" style="padding: 10px 24px; font-weight: 500;">Cancel</button>
+                <button class="btn btn-delete" onclick="confirmDeleteRestore()" style="padding: 10px 24px; font-weight: 500; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border: none; color: white;">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentDeleteResource = null;
+        let allApplications = [];
+        let currentDeleteRestore = null;
+
+        // Refresh button
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            const icon = document.getElementById('refreshIcon');
+            icon.style.animation = 'spin 1s linear';
+            setTimeout(() => icon.style.animation = '', 1000);
+            loadApplications();
+        });
+
+        // Load applications
+        async function loadApplications() {
+            const loading = document.getElementById('applications-loading');
+            const content = document.getElementById('applications-content');
+            
+            loading.style.display = 'block';
+            content.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/applications');
+                const data = await response.json();
+                allApplications = data;
+                
+                loading.style.display = 'none';
+                renderApplications(data);
+                updateNamespaceFilter(data, 'app-namespace-filter');
+            } catch (error) {
+                loading.style.display = 'none';
+                content.innerHTML = '<div class="empty-state">Error loading applications: ' + error.message + '</div>';
+            }
+        }
+
+        function renderApplications(apps) {
+            const content = document.getElementById('applications-content');
+            
+            if (apps.length === 0) {
+                content.innerHTML = '<div class="empty-state">No applications found</div>';
+                return;
+            }
+            
+            const table = document.createElement('table');
+            table.className = 'resource-table';
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Namespace</th>
+                        <th>State</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${apps.map(app => `
+                        <tr>
+                            <td><strong>${app.name}</strong></td>
+                            <td>${app.namespace}</td>
+                            <td><span class="badge badge-active">${app.state}</span></td>
+                            <td>${new Date(app.created).toLocaleString()}</td>
+                            <td>
+                                <button class="action-btn btn-delete-app-only" onclick="deleteApplicationOnly('${app.namespace}', '${app.name}')" title="Prepare for restore: deletes workloads & PVCs, keeps snapshots" style="width: 110px;">
+                                    Prep Restore
+                                </button>
+                                <button class="action-btn btn-delete" onclick="deleteApplication('${app.namespace}', '${app.name}')" title="Complete cleanup (deletes everything)" style="width: 110px;">
+                                    Delete All
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            content.innerHTML = '';
+            content.appendChild(table);
+        }
+
+        // Update namespace filters
+        function updateNamespaceFilter(items, filterId) {
+            const filter = document.getElementById(filterId);
+            const namespaces = [...new Set(items.map(item => item.namespace))].sort();
+            
+            const currentValue = filter.value;
+            filter.innerHTML = '<option value="all">All Namespaces</option>';
+            namespaces.forEach(ns => {
+                const option = document.createElement('option');
+                option.value = ns;
+                option.textContent = ns;
+                filter.appendChild(option);
+            });
+            filter.value = currentValue;
+        }
+
+        // Filter applications
+        document.getElementById('app-namespace-filter').addEventListener('change', filterApplications);
+        document.getElementById('search-apps').addEventListener('input', filterApplications);
+
+        function filterApplications() {
+            const namespace = document.getElementById('app-namespace-filter').value;
+            const search = document.getElementById('search-apps').value.toLowerCase();
+            
+            let filtered = allApplications;
+            
+            if (namespace !== 'all') {
+                filtered = filtered.filter(app => app.namespace === namespace);
+            }
+            
+            if (search) {
+                filtered = filtered.filter(app => 
+                    app.name.toLowerCase().includes(search) ||
+                    app.namespace.toLowerCase().includes(search)
+                );
+            }
+            
+            renderApplications(filtered);
+        }
+
+        // Delete application only (for restore testing)
+        function deleteApplicationOnly(namespace, name) {
+            currentDeleteResource = {
+                type: 'application-only',
+                namespace: namespace,
+                name: name
+            };
+            
+            document.getElementById('delete-modal-body').innerHTML = `
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #bae6fd;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #0369a1; font-weight: 500;">Application</span>
+                    </div>
+                    <p style="margin: 0; font-size: 1rem; font-weight: 600; color: #0c4a6e;">${name}</p>
+                </div>
+                
+                <div style="background: #fef3c7; border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; border: 1px solid #fde68a;">
+                    <span style="font-size: 0.8125rem; color: #92400e;">Namespace: <strong>${namespace}</strong></span>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid #93c5fd;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <h4 style="margin: 0; color: #075985; font-size: 0.9375rem; font-weight: 600;">Prepare for Restore</h4>
+                    </div>
+                    <p style="margin: 0 0 8px 0; color: #0369a1; font-size: 0.8125rem;">Will delete:</p>
+                    <ul style="margin: 0 0 8px 0; padding-left: 20px; color: #0369a1; font-size: 0.8125rem; line-height: 1.6;">
+                        <li>Application CRD, StatefulSet, Services</li>
+                        <li>PVCs & PVs (restored from snapshot)</li>
+                    </ul>
+                    <p style="margin: 8px 0 0 0; padding-top: 8px; border-top: 1px solid #93c5fd; color: #075985; font-size: 0.8125rem;"><strong>Preserves:</strong> All snapshots & protection plans</p>
+                </div>
+                
+                <div style="background: #dcfce7; border-radius: 6px; padding: 10px 12px; border-left: 3px solid #22c55e;">
+                    <p style="margin: 0; color: #166534; font-size: 0.8125rem; font-weight: 500;">Ready to restore from snapshot after this</p>
+                </div>
+            `;
+            
+            // Hide force delete button for app-only delete
+            document.querySelector('.btn-force-delete').style.display = 'none';
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        // Delete application (complete cleanup)
+        function deleteApplication(namespace, name) {
+            currentDeleteResource = {
+                type: 'application',
+                namespace: namespace,
+                name: name
+            };
+            
+            document.getElementById('delete-modal-body').innerHTML = `
+                <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; padding: 16px; margin-bottom: 16px; border: 1px solid #bae6fd;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="9" y1="9" x2="15" y2="9"></line>
+                            <line x1="9" y1="15" x2="15" y2="15"></line>
+                        </svg>
+                        <span style="font-size: 0.8125rem; color: #0369a1; font-weight: 500;">Application</span>
+                    </div>
+                    <p style="margin: 0; font-size: 1rem; font-weight: 600; color: #0c4a6e;">${name}</p>
+                </div>
+                
+                <div style="background: #fef3c7; border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; border: 1px solid #fde68a;">
+                    <span style="font-size: 0.8125rem; color: #92400e;">Namespace: <strong>${namespace}</strong></span>
+                </div>
+                
+                <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 10px; padding: 14px; margin-bottom: 12px; border: 1px solid #fbbf24;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <h4 style="margin: 0; color: #78350f; font-size: 0.9375rem; font-weight: 600;">Complete Cleanup</h4>
+                    </div>
+                    <p style="margin: 0 0 8px 0; color: #92400e; font-size: 0.8125rem;">This will delete ALL resources:</p>
+                    <ul style="margin: 0; padding-left: 20px; color: #92400e; font-size: 0.8125rem; line-height: 1.6;">
+                        <li>All snapshots & protection plans</li>
+                        <li>PVCs, PVs & Volume Groups</li>
+                    </ul>
+                </div>
+                
+                <div style="background: #fee2e2; border-radius: 6px; padding: 10px 12px; border-left: 3px solid #dc2626;">
+                    <p style="margin: 0; color: #991b1b; font-size: 0.8125rem; font-weight: 600;">This action cannot be undone</p>
+                </div>
+            `;
+            
+            // Show force delete button for full delete
+            document.querySelector('.btn-force-delete').style.display = 'inline-block';
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        // Confirm delete
+        async function confirmDelete() {
+            if (!currentDeleteResource) return;
+            
+            const { type, namespace, name } = currentDeleteResource;
+            
+            // Close confirmation modal and show progress modal
+            closeDeleteModal();
+            showDeleteProgressModal(namespace, name, type);
+            
+            // For app-only delete, use the new endpoint
+            const endpoint = type === 'application-only' 
+                ? `/api/applications/${namespace}/${name}?app_only=true`
+                : `/api/applications/${namespace}/${name}`;
+            
+            try {
+                updateDeleteProgress('⏳ In Progress', 'Sending delete request...');
+                
+                const response = await fetch(endpoint, { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let message = type === 'application-only'
+                        ? `✓ Application prepared for restore (snapshots preserved)`
+                        : `✓ Application deleted successfully`;
+                    
+                    // Show cleanup log if available
+                    if (data.cleanup_log && data.cleanup_log.length > 0) {
+                        message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
+                    }
+                    
+                    updateDeleteProgress('✅ Complete', message);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadApplications();
+                    }, 2000);
+                } else {
+                    updateDeleteProgress('❌ Failed', `Error: ${data.error}`);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                updateDeleteProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+            }
+        }
+
+        // Confirm force delete
+        async function confirmForceDelete() {
+            if (!currentDeleteResource) return;
+            
+            const { type, namespace, name } = currentDeleteResource;
+            
+            // Close confirmation modal and show progress modal
+            closeDeleteModal();
+            showDeleteProgressModal(namespace, name, 'force-delete');
+            
+            const endpoint = `/api/applications/${namespace}/${name}?force=true`;
+            
+            try {
+                updateDeleteProgress('⏳ In Progress', 'Sending force delete request...');
+                
+                const response = await fetch(endpoint, { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    let message = `✓ Application force deleted successfully`;
+                    
+                    // Show cleanup log if available
+                    if (data.cleanup_log && data.cleanup_log.length > 0) {
+                        message += '\n\nCleanup Summary:\n' + data.cleanup_log.join('\n');
+                    }
+                    
+                    updateDeleteProgress('✅ Complete', message);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadApplications();
+                    }, 2000);
+                } else {
+                    updateDeleteProgress('❌ Failed', `Error: ${data.error}`);
+                    document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                updateDeleteProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('delete-progress-close-btn').style.display = 'inline-block';
+            }
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            currentDeleteResource = null;
+        }
+
+        // Delete progress modal functions
+        function showDeleteProgressModal(namespace, name, type) {
+            document.getElementById('delete-progress-app-name').textContent = name;
+            document.getElementById('delete-progress-namespace').textContent = namespace;
+            document.getElementById('delete-progress-status').textContent = '⏳ Starting...';
+            document.getElementById('delete-progress-message').textContent = 'Initiating deletion...';
+            document.getElementById('delete-progress-close-btn').style.display = 'none';
+            document.getElementById('deleteProgressModal').classList.add('active');
+        }
+
+        function updateDeleteProgress(status, message) {
+            document.getElementById('delete-progress-status').textContent = status;
+            document.getElementById('delete-progress-message').textContent = message;
+        }
+
+        function closeDeleteProgressModal() {
+            document.getElementById('deleteProgressModal').classList.remove('active');
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.admin-tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.closest('.admin-tab-btn').classList.add('active');
+            
+            // Load data for the tab
+            if (tabName === 'restores') {
+                loadRestoreJobs();
+            }
+        }
+
+        // Restore Jobs Management
+        let allRestoreJobs = [];
+
+        async function loadRestoreJobs() {
+            const loading = document.getElementById('restores-loading');
+            const content = document.getElementById('restores-content');
+            
+            loading.style.display = 'block';
+            content.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/restores');
+                const data = await response.json();
+                allRestoreJobs = data;
+                
+                loading.style.display = 'none';
+                renderRestoreJobs(data);
+                updateNamespaceFilter(data, 'restore-namespace-filter');
+            } catch (error) {
+                loading.style.display = 'none';
+                content.innerHTML = '<div class="empty-state">Error loading restore jobs: ' + error.message + '</div>';
+            }
+        }
+
+        function renderRestoreJobs(jobs) {
+            const content = document.getElementById('restores-content');
+            
+            if (jobs.length === 0) {
+                content.innerHTML = '<div class="empty-state">No restore jobs found</div>';
+                return;
+            }
+
+            const completedCount = jobs.filter(j => j.completed).length;
+            const inProgressCount = jobs.filter(j => !j.completed).length;
+
+            let html = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                    <div style="background: linear-gradient(135deg, #059669 0%, #047857 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: var(--shadow-lg); border: 1px solid rgba(16, 185, 129, 0.2); transition: all 0.3s; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50%; right: -50%; width: 200px; height: 200px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: none;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="font-size: 36px; font-weight: 700; margin-bottom: 6px; line-height: 1;">${completedCount}</div>
+                            <div style="font-size: 13px; opacity: 0.95; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Completed</div>
+                        </div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: var(--shadow-lg); border: 1px solid rgba(2, 132, 199, 0.2); transition: all 0.3s; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50%; right: -50%; width: 200px; height: 200px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: none;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="font-size: 36px; font-weight: 700; margin-bottom: 6px; line-height: 1;">${inProgressCount}</div>
+                            <div style="font-size: 13px; opacity: 0.95; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">In Progress</div>
+                        </div>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border-radius: 12px; padding: 24px; color: white; box-shadow: var(--shadow-lg); border: 1px solid rgba(124, 58, 237, 0.2); transition: all 0.3s; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50%; right: -50%; width: 200px; height: 200px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; pointer-events: none;"></div>
+                        <div style="position: relative; z-index: 1;">
+                            <div style="font-size: 36px; font-weight: 700; margin-bottom: 6px; line-height: 1;">${jobs.length}</div>
+                            <div style="font-size: 13px; opacity: 0.95; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Total</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="resource-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Namespace</th>
+                            <th>Snapshot</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            jobs.forEach(job => {
+                const statusBadge = job.completed 
+                    ? '<span class="badge badge-active">Completed</span>'
+                    : '<span class="badge" style="background: #dbeafe; color: #1e40af;">In Progress</span>';
+                
+                const createdDate = new Date(job.created).toLocaleString();
+
+                html += `
+                    <tr>
+                        <td style="font-weight: 500;">${job.name}</td>
+                        <td><span class="badge" style="background: var(--bg-secondary); color: var(--text-primary);">${job.namespace}</span></td>
+                        <td style="font-family: monospace; font-size: 13px;">${job.snapshot_name}</td>
+                        <td>${statusBadge}</td>
+                        <td style="font-size: 13px; color: var(--text-secondary);">${createdDate}</td>
+                        <td>
+                            <button class="action-btn btn-delete" onclick="deleteRestoreJob('${job.namespace}', '${job.name}')" style="width: 110px;">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        }
+
+        function deleteRestoreJob(namespace, name) {
+            currentDeleteRestore = { namespace, name };
+            document.getElementById('delete-restore-name').textContent = name;
+            document.getElementById('delete-restore-namespace').textContent = namespace;
+            document.getElementById('delete-restore-modal').style.display = 'flex';
+        }
+
+        function closeDeleteRestoreModal() {
+            document.getElementById('delete-restore-modal').style.display = 'none';
+            currentDeleteRestore = null;
+        }
+
+        async function confirmDeleteRestore() {
+            if (!currentDeleteRestore) return;
+            
+            const { namespace, name } = currentDeleteRestore;
+            closeDeleteRestoreModal();
+            showCleanupProgressModal();
+
+            try {
+                updateCleanupProgress('⏳ In Progress', `Deleting restore job "${name}" from namespace "${namespace}"...`);
+                
+                const response = await fetch(`/api/restores/${namespace}/${name}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    updateCleanupProgress('✅ Complete', `✓ Restore job "${name}" deleted successfully`);
+                    document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadRestoreJobs();
+                    }, 2000);
+                } else {
+                    updateCleanupProgress('❌ Failed', `Error: ${data.error || 'Unknown error'}`);
+                    document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                updateCleanupProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+            }
+        }
+
+        function showCleanupAllModal() {
+            const namespace = document.getElementById('restore-namespace-filter').value;
+            const namespaceParam = namespace === 'all' ? null : namespace;
+            
+            const completedCount = allRestoreJobs.filter(j => j.completed && (namespaceParam === null || j.namespace === namespaceParam)).length;
+            
+            if (completedCount === 0) {
+                alert('No completed restore jobs to clean up.');
+                return;
+            }
+
+            document.getElementById('cleanup-all-count').textContent = completedCount;
+            document.getElementById('cleanup-all-restores-modal').style.display = 'flex';
+        }
+
+        function closeCleanupAllModal() {
+            document.getElementById('cleanup-all-restores-modal').style.display = 'none';
+        }
+
+        function showCleanupProgressModal() {
+            document.getElementById('cleanup-progress-status').textContent = 'Starting cleanup operation...';
+            document.getElementById('cleanup-progress-message').textContent = 'Initiating cleanup...';
+            document.getElementById('cleanup-progress-close-btn').style.display = 'none';
+            document.getElementById('cleanupProgressModal').style.display = 'flex';
+        }
+
+        function closeCleanupProgressModal() {
+            document.getElementById('cleanupProgressModal').style.display = 'none';
+        }
+
+        function updateCleanupProgress(status, message) {
+            document.getElementById('cleanup-progress-status').textContent = status;
+            document.getElementById('cleanup-progress-message').textContent = message;
+        }
+
+        async function confirmCleanupAll() {
+            closeCleanupAllModal();
+            showCleanupProgressModal();
+            
+            const namespace = document.getElementById('restore-namespace-filter').value;
+            const namespaceParam = namespace === 'all' ? null : namespace;
+
+            try {
+                updateCleanupProgress('⏳ In Progress', 'Sending cleanup request...');
+                
+                const response = await fetch('/api/restores/cleanup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ namespace: namespaceParam })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    let message = `✓ Cleanup completed successfully\n\nDeleted: ${data.deleted}\nFailed: ${data.failed}`;
+                    if (data.messages && data.messages.length > 0) {
+                        message += '\n\nCleanup Summary:\n' + data.messages.join('\n');
+                    }
+                    
+                    updateCleanupProgress('✅ Complete', message);
+                    document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+                    
+                    // Auto-refresh after 2 seconds
+                    setTimeout(() => {
+                        loadRestoreJobs();
+                    }, 2000);
+                } else {
+                    updateCleanupProgress('❌ Failed', `Error: ${data.error || 'Unknown error'}`);
+                    document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+                }
+            } catch (error) {
+                updateCleanupProgress('❌ Failed', `Error: ${error.message}`);
+                document.getElementById('cleanup-progress-close-btn').style.display = 'inline-block';
+            }
+        }
+
+        // Namespace filter for restore jobs
+        document.getElementById('restore-namespace-filter').addEventListener('change', (e) => {
+            const namespace = e.target.value;
+            if (namespace === 'all') {
+                renderRestoreJobs(allRestoreJobs);
+            } else {
+                const filtered = allRestoreJobs.filter(job => job.namespace === namespace);
+                renderRestoreJobs(filtered);
+            }
+        });
+
+        // Initial load
+        loadApplications();
+
+        // Add CSS animation for refresh button
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Load settings on page load
+        loadSettingsUI();
+
+        async function loadSettingsUI() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                const deployEnabled = data.features?.deploy !== false;
+                
+                const toggle = document.getElementById('deploy-toggle');
+                const bg = document.getElementById('deploy-toggle-bg');
+                const btn = document.getElementById('deploy-toggle-btn');
+                const label = document.getElementById('deploy-status-label');
+                
+                if (deployEnabled) {
+                    toggle.checked = true;
+                    bg.style.background = '#4f46e5';
+                    btn.style.left = '26px';
+                    label.textContent = 'Enabled';
+                    label.style.color = '#4f46e5';
+                } else {
+                    toggle.checked = false;
+                    bg.style.background = '#ccc';
+                    btn.style.left = '2px';
+                    label.textContent = 'Disabled';
+                    label.style.color = '#666';
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        async function toggleDeployFeature() {
+            const toggle = document.getElementById('deploy-toggle');
+            const bg = document.getElementById('deploy-toggle-bg');
+            const btn = document.getElementById('deploy-toggle-btn');
+            const label = document.getElementById('deploy-status-label');
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        features: {
+                            deploy: toggle.checked
+                        }
+                    })
+                });
+                
+                if (response.ok) {
+                    if (toggle.checked) {
+                        bg.style.background = '#4f46e5';
+                        btn.style.left = '26px';
+                        label.textContent = 'Enabled';
+                        label.style.color = '#4f46e5';
+                    } else {
+                        bg.style.background = '#ccc';
+                        btn.style.left = '2px';
+                        label.textContent = 'Disabled';
+                        label.style.color = '#666';
+                    }
+                } else {
+                    console.error('Error updating settings');
+                    toggle.checked = !toggle.checked;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                toggle.checked = !toggle.checked;
+            }
+        }
+
+        async function refreshTaskAppStatus() {
+            try {
+                const response = await fetch('/api/taskapp/db/status');
+                const data = await response.json();
+                
+                const badge = document.getElementById('taskapp-status-badge');
+                const statusText = document.getElementById('taskapp-status-text');
+                
+                if (data.connected) {
+                    badge.style.background = '#dcfce7';
+                    badge.style.color = '#166534';
+                    badge.innerHTML = '<span style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></span><span>Connected</span>';
+                    statusText.textContent = `Database: ${data.database}`;
+                } else {
+                    badge.style.background = '#fca5a5';
+                    badge.style.color = '#991b1b';
+                    badge.innerHTML = '<span style="width: 8px; height: 8px; background: currentColor; border-radius: 50%;"></span><span>Disconnected</span>';
+                    statusText.textContent = data.error || 'Unable to connect to database';
+                }
+                
+                await loadTaskAppStats();
+            } catch (error) {
+                console.error('Error refreshing status:', error);
+            }
+        }
+
+        async function loadTaskAppStats() {
+            try {
+                const response = await fetch('/api/taskapp/db/stats');
+                const data = await response.json();
+                
+                document.getElementById('stat-total').textContent = data.total || 0;
+                document.getElementById('stat-completed').textContent = data.completed || 0;
+                document.getElementById('stat-pending').textContent = data.pending || 0;
+                document.getElementById('stat-overdue').textContent = data.overdue || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        async function initializeTaskAppDatabase() {
+            if (!confirm('This will create the Task App database and tables if they do not exist. Continue?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/taskapp/db/create', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showTaskAppMessage(data.message);
+                    await refreshTaskAppStatus();
+                } else {
+                    showTaskAppMessage('Error: ' + data.error, true);
+                }
+            } catch (error) {
+                showTaskAppMessage('Error: ' + error.message, true);
+            }
+        }
+
+        async function clearTaskAppData() {
+            if (!confirm('This will delete ALL tasks from the database. This action cannot be undone. Are you sure?')) {
+                return;
+            }
+            
+            if (!confirm('Last warning: This will permanently delete all task data. Continue?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/taskapp/db/clear', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showTaskAppMessage(data.message);
+                    await refreshTaskAppStatus();
+                } else {
+                    showTaskAppMessage('Error: ' + data.error, true);
+                }
+            } catch (error) {
+                showTaskAppMessage('Error: ' + error.message, true);
+            }
+        }
+
+        async function loadDeployments() {
+            try {
+                const response = await fetch('/api/deployments');
+                const data = await response.json();
+                const select = document.getElementById('taskapp-deployment-select');
+                select.innerHTML = '<option value="">Select a deployment...</option>';
+                
+                if (data.deployments && data.deployments.length > 0) {
+                    data.deployments.forEach(dep => {
+                        const option = document.createElement('option');
+                        option.value = dep;
+                        option.textContent = dep;
+                        select.appendChild(option);
+                    });
+                    
+                    if (data.deployments.length > 0) {
+                        select.value = data.deployments[0];
+                        loadDeploymentSettings();
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading deployments:', error);
+            }
+        }
+
+        async function loadDeploymentSettings() {
+            const deploymentName = document.getElementById('taskapp-deployment-select').value;
+            if (!deploymentName) return;
+            
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                
+                if (data.taskapp_db && data.taskapp_db.pod === deploymentName) {
+                    document.getElementById('taskapp-db-host').value = data.taskapp_db.host || 'mysql-0.mysql.ndk-dev.svc.cluster.local';
+                    document.getElementById('taskapp-db-name').value = data.taskapp_db.database_name || 'mydb';
+                    document.getElementById('taskapp-db-password').value = data.taskapp_db.password || 'password';
+                } else {
+                    document.getElementById('taskapp-db-host').value = 'mysql-0.mysql.ndk-dev.svc.cluster.local';
+                    document.getElementById('taskapp-db-name').value = 'mydb';
+                    document.getElementById('taskapp-db-password').value = '';
+                }
+            } catch (error) {
+                console.error('Error loading deployment settings:', error);
+            }
+            
+            refreshTaskAppStatus();
+        }
+
+        async function loadTaskAppDatabaseSettings() {
+            try {
+                await loadDeployments();
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                
+                if (data.taskapp_db && data.taskapp_db.pod) {
+                    const select = document.getElementById('taskapp-deployment-select');
+                    select.value = data.taskapp_db.pod;
+                    loadDeploymentSettings();
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        async function saveTaskAppDatabaseSettings() {
+            const dbPod = document.getElementById('taskapp-deployment-select').value.trim();
+            const dbHost = document.getElementById('taskapp-db-host').value.trim();
+            const dbName = document.getElementById('taskapp-db-name').value.trim();
+            const dbPassword = document.getElementById('taskapp-db-password').value.trim();
+            
+            if (!dbPod) {
+                showTaskAppMessage('Please select a deployment', true);
+                return;
+            }
+            
+            if (!dbHost) {
+                showTaskAppMessage('SQL host cannot be empty', true);
+                return;
+            }
+            
+            if (!dbName) {
+                showTaskAppMessage('Database name cannot be empty', true);
+                return;
+            }
+            
+            if (!dbPassword) {
+                showTaskAppMessage('Database password cannot be empty', true);
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        taskapp_db: {
+                            pod: dbPod,
+                            host: dbHost,
+                            database_name: dbName,
+                            password: dbPassword
+                        }
+                    })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = 'Database settings saved successfully';
+                    
+                    if (data.deployment_updates) {
+                        const updates = data.deployment_updates;
+                        const patchUpdate = updates.find(u => u.action !== 'restart');
+                        const restartUpdate = updates.find(u => u.action === 'restart');
+                        
+                        if (patchUpdate && patchUpdate.success) {
+                            message += '\n✓ Deployment environment variables updated';
+                        } else if (patchUpdate && !patchUpdate.success) {
+                            message += '\n✗ Failed to update deployment: ' + patchUpdate.message;
+                        }
+                        
+                        if (restartUpdate && restartUpdate.success) {
+                            message += '\n✓ Deployment restarting with new settings';
+                        } else if (restartUpdate && !restartUpdate.success) {
+                            message += '\n✗ Failed to restart deployment: ' + restartUpdate.message;
+                        }
+                    }
+                    
+                    showTaskAppMessage(message);
+                    setTimeout(() => refreshTaskAppStatus(), 2000);
+                } else {
+                    showTaskAppMessage('Error: ' + data.error, true);
+                }
+            } catch (error) {
+                showTaskAppMessage('Error: ' + error.message, true);
+            }
+        }
+
+        function showTaskAppMessage(message, isError = false) {
+            const messageBox = document.getElementById('taskapp-message');
+            const messageText = document.getElementById('taskapp-message-text');
+            
+            messageText.textContent = message;
+            messageText.style.whiteSpace = 'pre-wrap';
+            messageText.style.wordWrap = 'break-word';
+            
+            if (isError) {
+                messageBox.style.background = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+                messageBox.style.borderColor = '#f87171';
+                messageBox.querySelector('svg').setAttribute('stroke', '#dc2626');
+                messageBox.querySelector('div:last-child').style.color = '#991b1b';
+            } else {
+                messageBox.style.background = 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)';
+                messageBox.style.borderColor = '#86efac';
+                messageBox.querySelector('svg').setAttribute('stroke', '#16a34a');
+                messageBox.querySelector('div:last-child').style.color = '#166534';
+            }
+            
+            messageBox.style.display = 'block';
+            
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, 6000);
+        }
+
+        loadSettingsUI();
+        loadTaskAppDatabaseSettings();
+        refreshTaskAppStatus();
+    </script>
+    </div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "features": {
+    "deploy": true
+  },
+  "taskapp_db": {
+    "host": "mysqldb01-0.mysqldb01.ndk-dev.svc.cluster.local",
+    "username": "root",
+    "database_name": "mydb",
+    "password": "password",
+    "pod": "task-web-app"
+  }
+}

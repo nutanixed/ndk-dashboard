@@ -1,0 +1,23 @@
+---
+# ConfigMap for ndk-dashboard settings
+# This ConfigMap stores taskapp_db connection settings that can be accessed by any pod
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ndk-dashboard-settings
+  namespace: ndk-dev
+  labels:
+    app: ndk-dashboard
+data:
+  settings.json: |
+    {
+      "features": {
+        "deploy": true
+      },
+      "taskapp_db": {
+        "pod": "task-web-app",
+        "host": "mysql-0.mysql.ndk-dev.svc.cluster.local",
+        "database_name": "mydb",
+        "password": "password"
+      }
+    }
