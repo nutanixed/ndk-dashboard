@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ndk-dev
+  name: nkpdev
 
 ---
 # Secret for MongoDB credentials
@@ -11,7 +11,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mongodb-credentials
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mongodb
 type: Opaque
@@ -24,7 +24,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mongodb
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mongodb
 spec:
@@ -41,7 +41,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mongodb
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mongodb
 spec:
@@ -88,7 +88,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: Application
 metadata:
   name: mongodb
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app.kubernetes.io/managed-by: ndk-dashboard
     tier: database
@@ -107,7 +107,7 @@ apiVersion: scheduler.nutanix.com/v1alpha1
 kind: JobScheduler
 metadata:
   name: mongodb-plan-scheduler
-  namespace: ndk-dev
+  namespace: nkpdev
 spec:
   cronSchedule: "0 3 * * *"  # Daily at 3 AM
 
@@ -117,7 +117,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: ProtectionPlan
 metadata:
   name: mongodb-plan
-  namespace: ndk-dev
+  namespace: nkpdev
   annotations:
     ndk-dashboard/selection-mode: by-name
 spec:
@@ -133,7 +133,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: AppProtectionPlan
 metadata:
   name: mongodb-mongodb-plan
-  namespace: ndk-dev
+  namespace: nkpdev
 spec:
   applicationName: mongodb
   protectionPlanNames:

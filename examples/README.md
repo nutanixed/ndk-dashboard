@@ -53,7 +53,7 @@ Each example creates the following Kubernetes resources:
 
 1. **Download** the YAML file for your desired application
 2. **Customize** the values:
-   - Change `namespace` from `ndk-dev` to your preferred namespace
+   - Change `namespace` from `nkpdev` to your preferred namespace
    - Update `password` in the Secret
    - Adjust `replicas`, `storage`, and `storageClassName` as needed
    - Modify `cronSchedule` for backup timing
@@ -88,19 +88,19 @@ After deployment, verify resources:
 
 ```bash
 # Check all resources
-kubectl get all -n ndk-dev
+kubectl get all -n nkpdev
 
 # Check NDK Application
-kubectl get applications -n ndk-dev
+kubectl get applications -n nkpdev
 
 # Check Protection Plan
-kubectl get protectionplans -n ndk-dev
+kubectl get protectionplans -n nkpdev
 
 # Check App Protection Plan
-kubectl get appprotectionplans -n ndk-dev
+kubectl get appprotectionplans -n nkpdev
 
 # Check snapshots (after first backup runs)
-kubectl get applicationsnapshots -n ndk-dev
+kubectl get applicationsnapshots -n nkpdev
 ```
 
 ## NDK Dashboard ConfigMap (`ndk-dashboard-configmap.yaml`)
@@ -117,7 +117,7 @@ The ConfigMap stores database connection settings that are centralized and acces
 {
   "taskapp_db": {
     "pod": "task-web-app",           // Pod/deployment this config is for
-    "host": "mysql-0.mysql.ndk-dev.svc.cluster.local",  // Database host
+    "host": "mysql-0.mysql.nkpdev.svc.cluster.local",  // Database host
     "database_name": "mydb",         // Database name
     "password": "password"           // Database password
   }
@@ -142,7 +142,7 @@ Response:
 {
   "success": true,
   "settings": {
-    "host": "mysql-0.mysql.ndk-dev.svc.cluster.local",
+    "host": "mysql-0.mysql.nkpdev.svc.cluster.local",
     "database_name": "mydb",
     "password": "password"
   }

@@ -5,7 +5,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ndk-dashboard-settings
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: ndk-dashboard
 data:
@@ -16,7 +16,7 @@ data:
       },
       "taskapp_db": {
         "pod": "task-web-app",
-        "host": "mysql-0.mysql.ndk-dev.svc.cluster.local",
+        "host": "mysql-0.mysql.nkpdev.svc.cluster.local",
         "database_name": "mydb",
         "password": "password"
       }

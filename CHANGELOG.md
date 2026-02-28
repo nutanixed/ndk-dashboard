@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for any number of pods with independent configurations
   - Extensible architecture for managing multiple applications
 - **Dynamic Host Configuration**: SQL Host/DNS Name is now fully configurable
-  - Previously hardcoded to `mysql-0.mysql.ndk-dev.svc.cluster.local`
+  - Previously hardcoded to `mysql-0.mysql.nkpdev.svc.cluster.local`
   - Now supports any pod IP, hostname, or custom DNS entry
 - **Configurable Database Credentials**
   - Username field (previously hardcoded to `root`)
@@ -90,7 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🎯 Technical Details
 
 #### ConfigMap Implementation
-- Namespace: `ndk-dev`, ConfigMap Name: `ndk-dashboard-settings`
+- Namespace: `nkpdev`, ConfigMap Name: `ndk-dashboard-settings`
 - Automatic creation with proper labels and ownership
 - Graceful fallback to local file if ConfigMap access fails
 - Supports both ConfigMap and file-based persistence

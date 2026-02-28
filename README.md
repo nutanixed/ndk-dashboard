@@ -150,7 +150,7 @@ The dashboard stores task app database settings in a Kubernetes ConfigMap for cl
 
 **ConfigMap Details:**
 - **Name**: `ndk-dashboard-settings`
-- **Namespace**: `ndk-dev`
+- **Namespace**: `nkpdev`
 - **Storage**: Primary persistence layer for settings
 - **Fallback**: Local `instance/settings.json` file if ConfigMap is unavailable
 
@@ -160,13 +160,13 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ndk-dashboard-settings
-  namespace: ndk-dev
+  namespace: nkpdev
 data:
   settings.json: |
     {
       "taskapp_db": {
         "pod": "task-web-app",
-        "host": "mysql-0.mysql.ndk-dev.svc.cluster.local",
+        "host": "mysql-0.mysql.nkpdev.svc.cluster.local",
         "username": "root",
         "database_name": "mydb",
         "password": "your-db-password"

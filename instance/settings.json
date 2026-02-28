@@ -3,7 +3,7 @@
     "deploy": true
   },
   "taskapp_db": {
-    "host": "mysqldb01-0.mysqldb01.ndk-dev.svc.cluster.local",
+    "host": "mysqldb01-0.mysqldb01.nkpdev.svc.cluster.local",
     "username": "root",
     "database_name": "mydb",
     "password": "password",

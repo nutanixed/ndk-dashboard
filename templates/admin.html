@@ -534,7 +534,7 @@
                         </div>
                         <div>
                             <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">SQL Host / DNS Name</label>
-                            <input type="text" id="taskapp-db-host" placeholder="mysql-0.mysql.ndk-dev.svc.cluster.local" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
+                            <input type="text" id="taskapp-db-host" placeholder="mysql-0.mysql.nkpdev.svc.cluster.local" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; box-sizing: border-box;">
                         </div>
                         <div>
                             <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Database Name</label>
@@ -1656,11 +1656,11 @@ Initiating cleanup...
                 const data = await response.json();
                 
                 if (data.taskapp_db && data.taskapp_db.pod === deploymentName) {
-                    document.getElementById('taskapp-db-host').value = data.taskapp_db.host || 'mysql-0.mysql.ndk-dev.svc.cluster.local';
+                    document.getElementById('taskapp-db-host').value = data.taskapp_db.host || 'mysql-0.mysql.nkpdev.svc.cluster.local';
                     document.getElementById('taskapp-db-name').value = data.taskapp_db.database_name || 'mydb';
                     document.getElementById('taskapp-db-password').value = data.taskapp_db.password || 'password';
                 } else {
-                    document.getElementById('taskapp-db-host').value = 'mysql-0.mysql.ndk-dev.svc.cluster.local';
+                    document.getElementById('taskapp-db-host').value = 'mysql-0.mysql.nkpdev.svc.cluster.local';
                     document.getElementById('taskapp-db-name').value = 'mydb';
                     document.getElementById('taskapp-db-password').value = '';
                 }

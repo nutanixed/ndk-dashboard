@@ -3,7 +3,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ndk-dev
+  name: nkpdev
 
 ---
 # Secret for MySQL credentials
@@ -11,7 +11,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: mysql-credentials
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mysql
 type: Opaque
@@ -25,7 +25,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mysql
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mysql
 spec:
@@ -42,7 +42,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mysql
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app: mysql
 spec:
@@ -94,7 +94,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: Application
 metadata:
   name: mysql
-  namespace: ndk-dev
+  namespace: nkpdev
   labels:
     app.kubernetes.io/managed-by: ndk-dashboard
     environment: dev
@@ -113,7 +113,7 @@ apiVersion: scheduler.nutanix.com/v1alpha1
 kind: JobScheduler
 metadata:
   name: mysql-plan-scheduler
-  namespace: ndk-dev
+  namespace: nkpdev
 spec:
   cronSchedule: "0 2 * * *"  # Daily at 2 AM
 
@@ -123,7 +123,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: ProtectionPlan
 metadata:
   name: mysql-plan
-  namespace: ndk-dev
+  namespace: nkpdev
   annotations:
     ndk-dashboard/selection-mode: by-name
 spec:
@@ -139,7 +139,7 @@ apiVersion: dataservices.nutanix.com/v1alpha1
 kind: AppProtectionPlan
 metadata:
   name: mysql-mysql-plan
-  namespace: ndk-dev
+  namespace: nkpdev
 spec:
   applicationName: mysql
   protectionPlanNames:

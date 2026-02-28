@@ -15,7 +15,7 @@ main_bp = Blueprint('main', __name__)
 
 SETTINGS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'instance', 'settings.json')
 CONFIGMAP_NAME = 'ndk-dashboard-settings'
-CONFIGMAP_NAMESPACE = 'ndk-dev'
+CONFIGMAP_NAMESPACE = 'nkpdev'
 
 def ensure_settings_file():
     """Ensure settings file exists with defaults"""
@@ -26,7 +26,7 @@ def ensure_settings_file():
                 'deploy': True
             },
             'taskapp_db': {
-                'host': 'mysql-0.mysql.ndk-dev.svc.cluster.local',
+                'host': 'mysql-0.mysql.nkpdev.svc.cluster.local',
                 'database_name': 'mydb',
                 'password': 'password',
                 'pod': 'task-web-app'
@@ -258,7 +258,7 @@ def update_settings():
             
             pod_name = new_taskapp_db.get('pod')
             if pod_name:
-                host = new_taskapp_db.get('host', 'mysql-0.mysql.ndk-dev.svc.cluster.local')
+                host = new_taskapp_db.get('host', 'mysql-0.mysql.nkpdev.svc.cluster.local')
                 database_name = new_taskapp_db.get('database_name', 'mydb')
                 password = new_taskapp_db.get('password', 'password')
                 
@@ -301,7 +301,7 @@ def get_taskapp_db_settings(pod_name):
             return jsonify({
                 'success': True,
                 'settings': {
-                    'host': taskapp_db.get('host', 'mysql-0.mysql.ndk-dev.svc.cluster.local'),
+                    'host': taskapp_db.get('host', 'mysql-0.mysql.nkpdev.svc.cluster.local'),
                     'database_name': taskapp_db.get('database_name', 'mydb'),
                     'password': taskapp_db.get('password', 'password')
                 }
@@ -854,7 +854,7 @@ def create_taskapp_db():
         
         settings = load_settings()
         db_config = settings.get('taskapp_db', {})
-        db_host = db_config.get('host', 'mysql-0.mysql.ndk-dev.svc.cluster.local')
+        db_host = db_config.get('host', 'mysql-0.mysql.nkpdev.svc.cluster.local')
         db_user = db_config.get('username', 'root')
         db_name = db_config.get('database_name', 'mydb')
         db_pass = db_config.get('password', 'password')
@@ -918,7 +918,7 @@ def clear_taskapp_db():
         
         settings = load_settings()
         db_config = settings.get('taskapp_db', {})
-        db_host = db_config.get('host', 'mysql-0.mysql.ndk-dev.svc.cluster.local')
+        db_host = db_config.get('host', 'mysql-0.mysql.nkpdev.svc.cluster.local')
         db_user = db_config.get('username', 'root')
         db_name = db_config.get('database_name', 'mydb')
         db_pass = db_config.get('password', 'password')
@@ -961,7 +961,7 @@ def get_taskapp_db_stats():
         
         settings = load_settings()
         db_config = settings.get('taskapp_db', {})
-        db_host = db_config.get('host', 'mysql-0.mysql.ndk-dev.svc.cluster.local')
+        db_host = db_config.get('host', 'mysql-0.mysql.nkpdev.svc.cluster.local')
         db_user = db_config.get('username', 'root')
         db_name = db_config.get('database_name', 'mydb')
         db_pass = db_config.get('password', 'password')
@@ -1006,7 +1006,7 @@ def get_deployments():
         if not k8s_apps_api:
             return jsonify({'error': 'Kubernetes API not available'}), 503
         
-        deployments = k8s_apps_api.list_namespaced_deployment('ndk-dev')
+        deployments = k8s_apps_api.list_namespaced_deployment('nkpdev')
         apps = [dep.metadata.name for dep in deployments.items]
         
         return jsonify({'deployments': sorted(apps)})
