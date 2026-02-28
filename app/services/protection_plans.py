@@ -27,6 +27,13 @@ class ProtectionPlanService:
             result = _fetch_protection_plans()
             
             plans = []
+            
+            # Reconcile label-based applications before listing
+            try:
+                ProtectionPlanService.reconcile_label_based_apps()
+            except Exception as e:
+                print(f"Warning: Failed to reconcile label-based protection plans: {e}")
+
             for item in result.get('items', []):
                 metadata = item.get('metadata', {})
                 spec = item.get('spec', {})
@@ -502,3 +509,94 @@ class ProtectionPlanService:
             'retention': retention,
             'applications': apps_to_protect
         }
+
+    @staticmethod
+    def reconcile_label_based_apps():
+        """Ensure all applications matching protection plan label selectors are protected"""
+        if not k8s_api:
+            return
+
+        try:
+            # Get all protection plans
+            plans_result = k8s_api.list_cluster_custom_object(
+                group=Config.NDK_API_GROUP,
+                version=Config.NDK_API_VERSION,
+                plural='protectionplans'
+            )
+            
+            for plan in plans_result.get('items', []):
+                metadata = plan.get('metadata', {})
+                annotations = metadata.get('annotations', {})
+                
+                selection_mode = annotations.get('ndk-dashboard/selection-mode')
+                if selection_mode != 'by-label':
+                    continue
+                
+                label_key = annotations.get('ndk-dashboard/label-selector-key')
+                label_value = annotations.get('ndk-dashboard/label-selector-value')
+                
+                if not label_key or not label_value:
+                    continue
+                
+                plan_name = metadata.get('name')
+                namespace = metadata.get('namespace')
+                
+                # Find all applications in this namespace
+                apps_result = k8s_api.list_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=namespace,
+                    plural='applications'
+                )
+                
+                # Find all existing AppProtectionPlans for this plan
+                existing_app_plans_result = k8s_api.list_namespaced_custom_object(
+                    group=Config.NDK_API_GROUP,
+                    version=Config.NDK_API_VERSION,
+                    namespace=namespace,
+                    plural='appprotectionplans'
+                )
+                
+                existing_protected_apps = set()
+                for app_plan in existing_app_plans_result.get('items', []):
+                    spec = app_plan.get('spec', {})
+                    if plan_name in spec.get('protectionPlanNames', []):
+                        existing_protected_apps.add(spec.get('applicationName'))
+                
+                # Check each application
+                for app in apps_result.get('items', []):
+                    app_metadata = app.get('metadata', {})
+                    app_name = app_metadata.get('name')
+                    app_labels = app_metadata.get('labels', {})
+                    
+                    if app_labels.get(label_key) == label_value:
+                        if app_name not in existing_protected_apps:
+                            # Need to create AppProtectionPlan
+                            app_protection_plan_name = f"{app_name}-{plan_name}"
+                            app_protection_manifest = {
+                                'apiVersion': f'{Config.NDK_API_GROUP}/{Config.NDK_API_VERSION}',
+                                'kind': 'AppProtectionPlan',
+                                'metadata': {
+                                    'name': app_protection_plan_name,
+                                    'namespace': namespace
+                                },
+                                'spec': {
+                                    'applicationName': app_name,
+                                    'protectionPlanNames': [plan_name]
+                                }
+                            }
+                            
+                            try:
+                                k8s_api.create_namespaced_custom_object(
+                                    group=Config.NDK_API_GROUP,
+                                    version=Config.NDK_API_VERSION,
+                                    namespace=namespace,
+                                    plural='appprotectionplans',
+                                    body=app_protection_manifest
+                                )
+                                print(f"Successfully reconciled: Created AppProtectionPlan {app_protection_plan_name} for {app_name}")
+                            except ApiException as e:
+                                if e.status != 409:
+                                    print(f"Error creating reconciled AppProtectionPlan for {app_name}: {e}")
+        except Exception as e:
+            print(f"Error in reconcile_label_based_apps: {e}")
