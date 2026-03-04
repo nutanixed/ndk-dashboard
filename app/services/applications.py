@@ -6,6 +6,7 @@ import re
 import logging
 from kubernetes.client.rest import ApiException
 from config import Config
+from app.services.protection_plans import ProtectionPlanService
 from app.extensions import k8s_api, k8s_core_api, k8s_apps_api, with_auth_retry
 from app.utils.labels import filter_system_label_prefixes, filter_system_labels, preserve_system_labels
 
@@ -25,6 +26,12 @@ class ApplicationService:
         """Get all NDK Applications from non-system namespaces"""
         if not k8s_api:
             return []
+        
+        # Reconcile label-based protection plans before listing to ensure up-to-date protection status
+        try:
+            ProtectionPlanService.reconcile_label_based_apps()
+        except Exception as e:
+            logger.warning(f"Failed to reconcile label-based protection plans in list_applications: {e}")
         
         @with_auth_retry
         def _fetch_applications():

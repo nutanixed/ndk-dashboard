@@ -9,6 +9,7 @@ from kubernetes import client
 from kubernetes.client.rest import ApiException
 from app.extensions import k8s_api, k8s_core_api, k8s_apps_api
 from config import Config
+from app.services.protection_plans import ProtectionPlanService
 
 
 class DeploymentService:
@@ -69,13 +70,18 @@ class DeploymentService:
         # Encode secret data to base64
         encoded_secret_data = {k: base64.b64encode(v.encode()).decode() for k, v in secret_data.items()}
         
+        # Build labels
+        labels = {'app': app_name}
+        if custom_labels:
+            labels.update(custom_labels)
+            
         secret_manifest = {
             'apiVersion': 'v1',
             'kind': 'Secret',
             'metadata': {
                 'name': secret_name,
                 'namespace': namespace,
-                'labels': {'app': app_name}
+                'labels': labels
             },
             'type': 'Opaque',
             'data': encoded_secret_data
@@ -89,7 +95,7 @@ class DeploymentService:
         
         # Step 3: Create ConfigMap for MySQL replication if needed
         if app_type == 'mysql' and replicas > 1:
-            DeploymentService._create_mysql_replication_configmap(app_name, namespace)
+            DeploymentService._create_mysql_replication_configmap(app_name, namespace, custom_labels)
         
         # Step 4: Build environment variables based on app type
         env_vars = DeploymentService._build_env_vars(app_type, secret_name, database_name, app_name)
@@ -97,7 +103,7 @@ class DeploymentService:
         # Step 5: Build StatefulSet manifest
         statefulset_manifest = DeploymentService._build_statefulset_manifest(
             app_name, namespace, app_type, replicas, docker_image, port,
-            env_vars, storage_class, storage_size
+            env_vars, storage_class, storage_size, custom_labels
         )
         
         # Add nodeSelector if worker pool is specified
@@ -110,13 +116,14 @@ class DeploymentService:
         k8s_apps_api.create_namespaced_stateful_set(namespace=namespace, body=statefulset_manifest)
         
         # Step 6: Create Service
+        # Re-use labels from Secret
         service_manifest = {
             'apiVersion': 'v1',
             'kind': 'Service',
             'metadata': {
                 'name': app_name,
                 'namespace': namespace,
-                'labels': {'app': app_name}
+                'labels': labels
             },
             'spec': {
                 'ports': [{'port': port, 'name': app_type}],
@@ -130,6 +137,12 @@ class DeploymentService:
         # Step 7: Create NDK Application CR if requested
         if create_ndk_app:
             DeploymentService._create_ndk_application(app_name, namespace, custom_labels)
+            
+            # Reconcile label-based protection plans to pick up the new application
+            try:
+                ProtectionPlanService.reconcile_label_based_apps()
+            except Exception as e:
+                print(f"Warning: Failed to reconcile label-based protection plans during deployment: {e}")
         
         # Step 8: Create Protection Plan if requested
         if create_protection_plan and create_ndk_app:
@@ -240,7 +253,7 @@ class DeploymentService:
         return storage_size
     
     @staticmethod
-    def _create_mysql_replication_configmap(app_name, namespace):
+    def _create_mysql_replication_configmap(app_name, namespace, custom_labels=None):
         """Create ConfigMap with MySQL replication configuration scripts"""
         configmap_name = f"{app_name}-replication-config"
         
@@ -325,13 +338,18 @@ EOF
 fi
 """
         
+        # Build labels
+        labels = {'app': app_name}
+        if custom_labels:
+            labels.update(custom_labels)
+            
         configmap_manifest = {
             'apiVersion': 'v1',
             'kind': 'ConfigMap',
             'metadata': {
                 'name': configmap_name,
                 'namespace': namespace,
-                'labels': {'app': app_name}
+                'labels': labels
             },
             'data': {
                 'master.cnf': master_cnf,
@@ -349,7 +367,8 @@ fi
     
     @staticmethod
     def _build_statefulset_manifest(app_name, namespace, app_type, replicas,
-                                    docker_image, port, env_vars, storage_class, storage_size):
+                                    docker_image, port, env_vars, storage_class, storage_size,
+                                    custom_labels=None):
         """Build StatefulSet manifest"""
         # Determine mount path based on app type
         mount_paths = {
@@ -501,17 +520,22 @@ fi
                 }
             ]
         
+        # Build labels
+        labels = {
+            'app': app_name,
+            'app.kubernetes.io/name': app_type,
+            'app.kubernetes.io/managed-by': 'ndk-dashboard'
+        }
+        if custom_labels:
+            labels.update(custom_labels)
+            
         return {
             'apiVersion': 'apps/v1',
             'kind': 'StatefulSet',
             'metadata': {
                 'name': app_name,
                 'namespace': namespace,
-                'labels': {
-                    'app': app_name,
-                    'app.kubernetes.io/name': app_type,
-                    'app.kubernetes.io/managed-by': 'ndk-dashboard'
-                }
+                'labels': labels
             },
             'spec': {
                 'serviceName': app_name,
@@ -521,10 +545,7 @@ fi
                 },
                 'template': {
                     'metadata': {
-                        'labels': {
-                            'app': app_name,
-                            'app.kubernetes.io/name': app_type
-                        }
+                        'labels': labels
                     },
                     'spec': pod_spec
                 },
